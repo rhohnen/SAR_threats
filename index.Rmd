@@ -12,15 +12,17 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r data_processing, echo=TRUE}
 library(dplyr)
-
 ### read in dataset
 threats <-read.csv('SAR_overlap_threats_noNA.csv')
-head(threats)
 
 ### clean dataset
 # Filter rows where percent_caribou > 0
 overlap_caribou_threats <- threats %>%
   filter(Percent_caribou > 0)
+
+# Replace spaces with underscores in a specific column (taxonomic_group)
+overlap_caribou_threats <- overlap_caribou_threats %>%
+  mutate(taxonomic_group = gsub(" ", "_", taxonomic_group))
 
 # Keep only the most recent year_published for each common_name
 overlap_caribou_threats_single <- overlap_caribou_threats %>%
@@ -50,10 +52,13 @@ overlap_caribou_threats_single <- overlap_caribou_threats_single %>%
 overlap_caribou_threats_single <- overlap_caribou_threats_single %>%
   filter(row_total != "0") 
 
-###Create subset
+#### to make a consistent data set replace any 2 values with a 1
+overlap_caribou_threats_single <- overlap_caribou_threats_single %>%
+  mutate(across(everything(), ~ ifelse(. == 2, 1, .)))
 
-subset_data <- overlap_caribou_threats_single %>% select(15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,
-                                                         41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,
+###Create subset using threat subcategories, and excluding overarching categories (that would be correlated with the sub categories)
+subset_data <- overlap_caribou_threats_single %>% select(16,17,18,20,21,22,23,25,26,27,29,30,31,32,34,35,36,37,39,40,
+                                                         41,43,44,45,47,48,49,50,51,52,54,55,56,57,58,59,61,62,63,65,66,67,
                                                         68,69,70,71,72,73,74)
 # Convert all columns to factors
 subset_data <- subset_data %>% mutate(across(everything(), as.numeric))
@@ -63,8 +68,9 @@ subset_data <- subset_data %>% mutate(across(everything(), as.numeric))
 Compute similarity between boreal caribou and other SAR in their IUCN threats using the Jaccard index.
 ```{r jaccard, echo=TRUE}
 
+###################################################################################
+### try to compute similarity between species and woodland caribou row using the Jaccard index
 library(vegan)
-
 dist <-vegdist(subset_data, method = "jaccard")
 # Convert dist object to a matrix
 dist_matrix <- as.matrix(dist)
@@ -78,29 +84,123 @@ dist_df <- as.data.frame(dist_matrix)
 # Extract row 42 from dist_df
 row_42 <- dist_df[42, ]
 
+# make dissimilarity matrix
+dissimilarity_matrix <- 1 - dist_matrix
+
+# Extract row 42 from dissimilarity matrix
+row_42_diss <- dissimilarity_matrix[42, ]
+
 # Add row_42 as a column to overlap_caribou_threats_single
 overlap_caribou_threats_single <- overlap_caribou_threats_single %>%
   mutate(Row42 = as.numeric(row_42))
 
-##change some columns to factors
+# Add row_42_diss as a column to overlap_caribou_threats_single
+overlap_caribou_threats_single <- overlap_caribou_threats_single %>%
+  mutate(Row42_diss = as.numeric(row_42_diss))
+```
+# Run a MCA 
+
+Examine patterns in how threats are shared between taxonomic groups, range areas and range overlap with caribou using an MCA.
+
+```{r MCA, echo=TRUE}
+library("FactoMineR")
+library("factoextra")
+
+###Create subset for MCA. This subset has the sub groups but not the group categories
+subset_data_MCA<- overlap_caribou_threats_single %>% select(16,17,18,20,21,22,23,25,26,27,29,30,31,32,34,35,36,37,39,40,
+                                                         41,43,44,45,47,48,49,50,51,52,54,55,56,57,58,59,61,62,63,65,66,67,
+                                                         68,69)
+# Remove rows and columns with no variance
+subset_data_MCA <- subset_data_MCA[rowSums(is.na(subset_data_MCA)) != ncol(subset_data_MCA), ]
+subset_data_MCA <- subset_data_MCA[, colSums(is.na(subset_data_MCA)) != nrow(subset_data_MCA)]
+
+# Remove columns with very few non-zero values
+threshold <- 3
+subset_data_MCA <- subset_data_MCA %>%
+  select(where(~ sum(.) >= threshold))
+
+# Convert all columns to factors
+subset_data_MCA <- data.frame(lapply(subset_data_MCA, as.factor))
+
+#run MCA
+MCA <-MCA(subset_data_MCA, ncp = 5, graph = FALSE)
+```
+
+
+```{r MCA_plots, echo=TRUE}
+eig.val <- get_eigenvalue(MCA)
+# head(eig.val)
+
+# plot % variance explained
+fviz_screeplot(MCA, addlabels = TRUE, ylim = c(0, 45))
+
+var <- get_mca_var(MCA)
+var
+
+## plot how threats contribute to each axis
+fviz_mca_var(MCA, choice = "mca.cor", 
+             repel = TRUE, # Avoid text overlapping (slow)
+             ggtheme = theme_minimal())
+
+## plot how species fit on each axis
+fviz_mca_var(MCA, col.var="black", shape.var = 15,
+             repel = TRUE)
+
+### graph individuals (species in this case)
+ind <- get_mca_ind(MCA)
+```
+
+
+```{r MCA_plots2, echo=TRUE}
+### visualize individuals (species here) based on cos2 loading
+fviz_mca_ind(MCA, col.ind = "cos2", 
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+             repel = TRUE, # Avoid text overlapping (slow if many points)
+             ggtheme = theme_minimal())
+
+### visualize individuals and group by taxonomic group
+# habillage = external grouping variable here taxonomic group
+overlap_caribou_threats_single$taxonomic_group <- as.factor(overlap_caribou_threats_single$taxonomic_group)
+fviz_mca_ind(MCA, habillage = overlap_caribou_threats_single$taxonomic_group, 
+             addEllipses = FALSE)
+
+### visualize individuals and group by range overlap with caribou
+fviz_mca_ind(
+  MCA, 
+  geom = "point", 
+  col.ind = overlap_caribou_threats_single$Intersect_caribou_km, # Use Area for coloring
+  gradient.cols = c("blue", "yellow", "red"), # Define a color gradient
+  addEllipses = FALSE
+) +
+  labs(color = "Area") # Label for the color legend
+
+### visualize individuals and group by range size
+fviz_mca_ind(
+  MCA, 
+  geom = "point", 
+  col.ind = overlap_caribou_threats_single$Total_area_km, # Use Area for coloring
+  gradient.cols = c("blue", "yellow", "red"), # Define a color gradient
+  addEllipses = FALSE
+) +
+  labs(color = "Area") # Label for the color legend
+```
+# Check for correlations
+
+Compute correlations between variables that could be included in the models. None appear to have correlation coefficients greater than 0.4.
+```{r correlation, echo=TRUE}
+## change some columns to factors
 overlap_caribou_threats_single <- overlap_caribou_threats_single %>%
   mutate(
     sara_status = as.factor(sara_status),
-    taxonomic_group = as.factor(taxonomic_group)
-  )
+    taxonomic_group = as.character(taxonomic_group))
 
-model_subset <- overlap_caribou_threats_single %>% select(3,6,12,70,72,73,75)
-```
-# Check for correlations 
+model_subset <- overlap_caribou_threats_single %>% select(3,6,12,70,72,73,75,76)
 
-Compute correlations between variables that could be included in the models non appear to more than 0.4.
-```{r correlation, echo=TRUE}
 numeric_vars <- model_subset %>%
   select(Percent_caribou, Total_area_km, sara_status, taxonomic_group) %>%
-  mutate(
-    sara_status = as.numeric(as.factor(sara_status)),  # Convert factors to numeric
-    taxonomic_group = as.numeric(as.factor(taxonomic_group))
-  )
+  mutate(  sara_status = as.numeric(as.factor(sara_status)),  # Convert factors to numeric
+  taxonomic_group = as.numeric(as.factor(taxonomic_group))
+ )
 
 correlation_matrix <- cor(numeric_vars, use = "complete.obs")  # Use complete.obs to handle NAs
 
@@ -109,14 +209,17 @@ print(correlation_matrix)
 ```
 ## Model correlates of threat overlap with caribou
 
-Run a glm that examine drivers of overlap in threats (Jaccard index) with caribou. These predictors include range size, percentage range overlap with caribou, taxonimic group and SARA status (threatened, endangered ect )
-Quasibinomial chosen as the reponse variable (Jaccard index) goes from 0-1.
+Run a glm that examine drivers of overlap in threats (Jaccard index) with caribou. These predictors include species range area (Total_area_km), percentage range overlap with caribou (Percent_caribou), taxonomic group (taxonomic_group_1 etc) and SARA status (sara_status1).
+Quasibinomial model was chosen as the response variable (Jaccard index) goes from 0-1.
 
 ```{r model, echo=TRUE}
 
+## Run some glms looking at descriptors of threat overlap with caribou
+
 library(stats)
-m1 <- glm(Row42~Percent_caribou + Total_area_km + sara_status + taxonomic_group, data=model_subset,
+m2 <- glm(row_42_diss~Percent_caribou + Total_area_km + sara_status + taxonomic_group, data=model_subset,
           family=quasibinomial(link = "logit"))
 
-summary(m1)
+summary(m2)
 ```
+Evidence of greater threat overlap with caribou for species with greater range sizes, more overlap in their range with caribou, and for mammals and birds.
