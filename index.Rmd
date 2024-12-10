@@ -10,6 +10,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 ## Exploring threat overlap between woodland caribou and other 'species at risk' in Canada
 
+Read in and clean data
 ```{r data_processing, echo=TRUE}
 library(dplyr)
 # Read in dataset
@@ -56,7 +57,7 @@ subset_data <- overlap_caribou_threats_single %>% select(16,17,18,20,21,22,23,25
 subset_data <- subset_data %>% mutate(across(everything(), as.numeric))
 ```
 
-# Run a MCA 
+## Run a MCA 
 
 Examine patterns in how threats are shared between taxonomic groups, range areas and range overlap with caribou using an MCA.
 
@@ -141,6 +142,7 @@ fviz_mca_ind(
 ) +
   labs(color = "Area") # Label for the color legend
 ```
+
 ## Calculate the Jaccard Index
 
 Compute similarity between boreal caribou and other SAR in their IUCN threats using the Jaccard index.
@@ -174,7 +176,8 @@ overlap_caribou_threats_single <- overlap_caribou_threats_single %>%
 overlap_caribou_threats_single <- overlap_caribou_threats_single %>%
   mutate(Row42_diss = as.numeric(row_42_diss))
 ```
-# Check for correlations
+
+## Check for correlations
 
 Compute correlations between variables that could be included in the models. None appear to have correlation coefficients greater than 0.4.
 ```{r correlation, echo=TRUE}
@@ -234,6 +237,7 @@ qqnorm(residuals(m2))
 qqline(residuals(m2), col = "blue")
 
 ```
+
 ## Plot SAR taxonomic group and caribou range overlap
 
 Make a graph that shows which taxonomic groups of SAR overlap most with caribou ranges
