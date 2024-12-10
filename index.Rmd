@@ -214,6 +214,7 @@ m2 <- glm(row_42_diss~Percent_caribou + Total_area_km + sara_status + taxonomic_
 summary(m2)
 
 ```
+
 Evidence of greater threat overlap with caribou for species with greater range sizes, more overlap in their range with caribou, and for mammals and birds.
 ```{r check fit, echo=TRUE}
 
@@ -233,3 +234,38 @@ qqnorm(residuals(m2))
 qqline(residuals(m2), col = "blue")
 
 ```
+## Plot SAR taxonomic group and caribou range overlap
+
+Make a graph that shows which taxonomic groups of SAR overlap most with caribou ranges
+```{r overlap, echo=TRUE}
+library(ggplot2)
+overlap <- read.csv("SAR_cara_overlap.csv", header=TRUE,)
+
+# Reshape data for grouped bar plot
+library(tidyr)
+overlap_long <- overlap %>%
+  pivot_longer(cols = c(SAR, SAR_caribou_range, SAR_caribou_range_20),
+               names_to = "Metric", 
+               values_to = "Value")
+
+# Create grouped bar plot
+ggplot(overlap_long, aes(x = Group, y = Value, fill = Metric)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(x = "Taxonomic group",
+       y = "Number of species",
+       fill = "Metric") +
+  scale_fill_manual(values = c("darkseagreen2", "khaki1", "green4"),
+                    labels = c("SAR", "SAR that overlap with caribou", "SAR that overlap with caribou >20%")) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    panel.background = element_rect(fill = 'white', colour = 'darkgrey'),
+    panel.grid.major = element_line(colour = 'white'),
+    text = element_text(size = 16),  # Increase overall font size
+    axis.title = element_text(size = 18),  # Axis titles
+    axis.text = element_text(size = 16),  # Axis text
+  )
+
+```
+
+
