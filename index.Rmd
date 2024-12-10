@@ -214,5 +214,24 @@ m2 <- glm(row_42_diss~Percent_caribou + Total_area_km + sara_status + taxonomic_
           family=quasibinomial(link = "logit"))
 
 summary(m2)
+
+
 ```
 Evidence of greater threat overlap with caribou for species with greater range sizes, more overlap in their range with caribou, and for mammals and birds.
+```{r check fit, echo=TRUE}
+null_dev <- summary(m2)$null.deviance
+resid_dev <- summary(m2)$deviance
+
+prop_deviance_explained <- (null_dev - resid_dev) / null_dev
+prop_deviance_explained
+
+# Residuals vs. Fitted values
+plot(fitted(m2), residuals(m2), main = "Residuals vs. Fitted")
+abline(h = 0, col = "red")
+
+# Normal Q-Q Plot of residuals
+qqnorm(residuals(m2))
+qqline(residuals(m2), col = "blue")
+
+
+```
