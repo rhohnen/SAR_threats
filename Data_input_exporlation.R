@@ -346,12 +346,12 @@ overlap_caribou_threats_single <- overlap_caribou_threats_single %>%
 
 model_subset <- overlap_caribou_threats_single %>% select(3,6,12,70,72,73,75,76)
 
-#numeric_vars <- model_subset %>%
-  #select(Percent_caribou, Total_area_km, sara_status, taxonomic_group) %>%
- # mutate(
-   # sara_status = as.numeric(as.factor(sara_status)),  # Convert factors to numeric
-   # taxonomic_group = as.numeric(as.factor(taxonomic_group))
- # )
+numeric_vars <- model_subset %>%
+  select(Percent_caribou, Total_area_km, sara_status, taxonomic_group) %>%
+  mutate(
+  sara_status = as.numeric(as.factor(sara_status)),  # Convert factors to numeric
+  taxonomic_group = as.numeric(as.factor(taxonomic_group))
+  )
 
 correlation_matrix <- cor(numeric_vars, use = "complete.obs")  # Use complete.obs to handle NAs
 
