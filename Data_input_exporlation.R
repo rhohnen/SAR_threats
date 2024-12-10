@@ -18,10 +18,12 @@ overlap_caribou_threats_single <- overlap_caribou_threats %>%
   group_by(common_name) %>%
   filter(year_published == max(year_published)) %>%
   ungroup()
+
 ###delete caribou that aren't relevant and multiples of the same species that weren't eliminated with the process above
 overlap_caribou_threats_single <- overlap_caribou_threats_single %>%
   filter(common_name != "Caribou Atlantic-Gaspésie Population") %>%
   filter(common_name != "caribou atlantic-gaspÃƒÂ©sie population") %>%
+  filter(common_name != "caribou atlantic-gaspÃ©sie population") %>%
   filter(common_name != "caribou dolphin and union population") %>%
   filter(rowID != "2024") %>%
   filter(rowID != "2047")
@@ -63,18 +65,15 @@ dist_matrix <- as.matrix(dist)
 
 # Convert matrix to a data frame
 dist_df <- as.data.frame(dist_matrix)
-# Add species column from overlap_caribou_threats_single
-#dist_df <- dist_df %>%
-  #mutate(species = overlap_caribou_threats_single$species)
 
 # Extract row 42 from dist_df
 row_42 <- dist_df[42, ]
 
-# make dissimilarity matrix
-dissimilarity_matrix <- 1 - dist_matrix
+# make similarity matrix
+similarity_matrix <- 1 - dist_matrix
 
-# Extract row 42 from dissimilarity matrix
-row_42_diss <- dissimilarity_matrix[42, ]
+# Extract row 42 from similarity matrix
+row_42_sim <- dissimilarity_matrix[42, ]
 
 # Add row_42 as a column to overlap_caribou_threats_single
 overlap_caribou_threats_single <- overlap_caribou_threats_single %>%
@@ -82,9 +81,67 @@ overlap_caribou_threats_single <- overlap_caribou_threats_single %>%
 
 # Add row_42_diss as a column to overlap_caribou_threats_single
 overlap_caribou_threats_single <- overlap_caribou_threats_single %>%
-  mutate(Row42_diss = as.numeric(row_42_diss))
+  mutate(Row42_sim = as.numeric(row_42_diss))
+
+# find species with jaccard scores of >0.5
+
+# Filter dataset for rows with similarity >0.5
+jaccard_0.5 <- overlap_caribou_threats_single %>%
+  filter(Row42_sim > 0.5)
+
+# Delete threat columns
+jaccard_0.5 <- jaccard_0.5 %>%
+  select(-c(15,16,17,18,19,20,21,22,23,24,25, 26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,
+            41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,
+            67,68,69))
+
+# look at species most dissismilar
+jaccard_0.04 <- overlap_caribou_threats_single %>%
+  filter(Row42_sim < 0.04)
+
+# Delete threat columns
+jaccard_0.04 <- jaccard_0.04 %>%
+  select(-c(15,16,17,18,19,20,21,22,23,24,25, 26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,
+            41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,
+            67,68,69))
 
 
+####look at the number of column in common between caribou and all other species in the dataset
+library(dplyr)
+# First, extract the row corresponding to "caribou"
+caribou_row <- overlap_caribou_threats_single %>% 
+  filter(common_name == "caribou boreal population") %>%
+  select(-c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,70,71,72,73,74,75,76,77))  # Remove the Species column (if present)
+
+# Create dataset to compare with
+species_all_row <- overlap_caribou_threats_single %>%
+  select(c(15,16,17,18,19,20,21,22,23,24,25, 26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,
+            41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,
+            67,68,69))
+
+# Create a new dataset comparing "caribou" to all other rows (and count 1's)
+comparison <- species_all_row %>%
+  rowwise() %>%
+  mutate(matching_ones = sum(caribou_row == 1 & c_across(everything()) == 1, na.rm = TRUE)) %>%
+  ungroup()
+
+# Add common_columns column (!) to overlap_caribou_threats single
+matching_ones <- comparison$matching_ones
+overlap_caribou_threats_single <- overlap_caribou_threats_single %>%
+  mutate(matching_ones = as.numeric(matching_ones))
+
+# look at correlation between common_columns and jaccard
+correlation_test <- overlap_caribou_threats_single %>% select(3,6,12,70,72,73,75,76,77)
+
+numeric_vars <- correlation_test%>%
+  select(Percent_caribou, Total_area_km, sara_status, taxonomic_group, Row42_sim, common_columns) %>%
+  mutate(
+    sara_status = as.numeric(as.factor(sara_status)),  # Convert factors to numeric
+    taxonomic_group = as.numeric(as.factor(taxonomic_group))
+  )
+
+correlation_matrix <- cor(numeric_vars, use = "complete.obs")  # Use complete.obs to handle NAs
+correlation_matrix
 
 ###################################################################################
 ### Run MCA to visualize differences based on taxonomic group
@@ -344,13 +401,13 @@ overlap_caribou_threats_single <- overlap_caribou_threats_single %>%
     sara_status = as.factor(sara_status),
     taxonomic_group = as.factor(taxonomic_group))
 
-model_subset <- overlap_caribou_threats_single %>% select(3,6,12,70,72,73,75,76)
+model_subset <- overlap_caribou_threats_single %>% select(3,6,12,70,72,73,75,76,77)
 
 numeric_vars <- model_subset %>%
-  select(Percent_caribou, Total_area_km, sara_status, taxonomic_group) %>%
+  select(Percent_caribou, Total_area_km, sara_status, taxonomic_group, Row42, Row42_diss, common_columns) %>%
   mutate(
   sara_status = as.numeric(as.factor(sara_status)),  # Convert factors to numeric
-  taxonomic_group = as.numeric(as.factor(taxonomic_group))
+  taxonomic_group = as.charater(as.factor(taxonomic_group))
   )
 
 correlation_matrix <- cor(numeric_vars, use = "complete.obs")  # Use complete.obs to handle NAs
@@ -361,7 +418,63 @@ print(correlation_matrix)
 ## Run some glms looking at descriptors of threat overlap with caribou
 
 library(stats)
-m2 <- glm(row_42_diss~Percent_caribou + Total_area_km + sara_status + taxonomic_group, data=model_subset,
+m2 <- glm(Row42_diss~Percent_caribou + Total_area_km + sara_status + taxonomic_group, data=model_subset,
           family=quasibinomial(link = "logit"))
 
 summary(m2)
+
+m3 <- glm(common_columns~Percent_caribou + Total_area_km + sara_status + taxonomic_group, data=model_subset,
+          family=poisson)
+
+summary(m3)
+unique(overlap_caribou_threats_single$taxonomic_group)
+
+
+# Proportion of deviance explained
+null_dev <- summary(m2)$null.deviance
+resid_dev <- summary(m2)$deviance
+prop_deviance_explained <- (null_dev - resid_dev) / null_dev
+cat("Proportion of Deviance Explained: ", prop_deviance_explained, "\n")
+
+# Dispersion parameter
+dispersion <- resid_dev / df.residual(m2)
+cat("Dispersion Parameter: ", dispersion, "\n")
+
+# Residual Diagnostics
+par(mfrow = c(1, 2)) # Plot side by side
+plot(fitted(m2), residuals(m2), main = "Residuals vs Fitted")
+abline(h = 0, col = "red")
+qqnorm(residuals(m2))
+qqline(residuals(m2), col = "blue")
+
+
+## Plot SAR taxonomic group and caribou range overlap
+
+# Make a graph that shows which taxonomic groups of SAR overlap most with caribou ranges
+library(ggplot2)
+overlap <- read.csv("SAR_cara_overlap.csv", header=TRUE,)
+head(overlap)
+# Reshape data for grouped bar plot
+library(tidyr)
+overlap_long <- overlap %>%
+  pivot_longer(cols = c(SAR, SAR_caribou_range, SAR_caribou_range_20),
+               names_to = "Metric", 
+               values_to = "Value")
+
+# Create grouped bar plot
+ggplot(overlap_long, aes(x = Group, y = Value, fill = Metric)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(x = "Taxonomic group",
+       y = "Number of species",
+       fill = "Metric") +
+  scale_fill_manual(values = c("darkseagreen2", "khaki1", "green4"),
+                    labels = c("SAR", "SAR that overlap with caribou", "SAR that overlap with caribou >20%")) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    panel.background = element_rect(fill = 'white', colour = 'darkgrey'),
+    panel.grid.major = element_line(colour = 'white'),
+    text = element_text(size = 16),  # Increase overall font size
+    axis.title = element_text(size = 18),  # Axis titles
+    axis.text = element_text(size = 16),  # Axis text
+  )
