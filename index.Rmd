@@ -13,10 +13,11 @@ knitr::opts_chunk$set(echo = TRUE)
 Read in and clean data
 ```{r data_processing, echo=TRUE}
 library(dplyr)
-# Read in dataset
+
+### read in dataset
 threats <-read.csv('SAR_overlap_threats_noNA.csv')
 
-# Clean dataset
+### clean dataset
 # Filter rows where percent_caribou > 0
 overlap_caribou_threats <- threats %>%
   filter(Percent_caribou > 0)
@@ -30,29 +31,33 @@ overlap_caribou_threats_single <- overlap_caribou_threats %>%
   group_by(common_name) %>%
   filter(year_published == max(year_published)) %>%
   ungroup()
-# Delete caribou that aren't relevant and multiples of the same species that weren't eliminated with the process above
-overlap_caribou_threats_single <- overlap_caribou_threats_single %>%
-  filter(common_name != "Caribou Atlantic-Gaspésie Population") %>%
-  filter(common_name != "caribou atlantic-gaspÃƒÂ©sie population") %>%
-  filter(common_name != "caribou atlantic-gaspÃ©sie population") %>%
-  filter(common_name != "caribou dolphin and union population") %>%
-  filter(rowID != "2024") %>%
-  filter(rowID != "2047")
 
-# Find rows with all zeros
+###delete caribou that aren't relevant and multiples of the same species that weren't eliminated with the process above
 overlap_caribou_threats_single <- overlap_caribou_threats_single %>%
-  mutate(row_total = rowSums(across(c("res_comm_development", "house_urban", "comm_industrial", "tourisim_rec", "agri_aqua", "crops", "wood_planta", "livestock_farm", "aqua", "energy", "oil_gas", "mining", "renewable", "transport_service", "roads", "utility_service", "shipping_lane", "flight_path", "bio_resource_use", "hunting", "gathering", "logging", "fishing", "human_disturbance", "recreation", "war", "work_activity", "natural_sys_change", "fire_fire_sup", "dams_water", "ecosysmod", "invasive_species", "invasive_nonative", "problematic_native", "introduced_genetic", "problematic_species", "viral_disease", "disease_unknown", "pollution", "sewage_waste_water", "industrial_waste", "agricultural_waste", "garbage_soil_waste", "air_boure_pollute", "ecess_energ7", "geological_event", "volcano", "earth_quake", "avalanche", "climate_change", "hab_shift", "drought", "temp_extreme","storm_flood"))))
+  filter(!(rowID %in% c("2024", "1505", "2047")))
 
-# Delete all rows with zeros
+### find rows with all zeros
+overlap_caribou_threats_single <- overlap_caribou_threats_single %>%
+  mutate(row_total = rowSums(across(c("res_comm_development", "house_urban", "comm_industrial", "tourisim_rec", "agri_aqua", "crops", "wood_planta","livestock_farm", "aqua", "energy", "oil_gas", "mining", "renewable", "transport_service", "roads", "utility_service", "shipping_lane", "flight_path", "bio_resource_use", "hunting", "gathering", "logging", "fishing", "human_disturbance",
+"recreation", "war", "work_activity", "natural_sys_change", "fire_fire_sup", "dams_water", "ecosysmod", "invasive_species",
+"invasive_nonative", "problematic_native", "introduced_genetic", "problematic_species", "viral_disease", "disease_unknown",    
+"pollution", "sewage_waste_water", "industrial_waste", "agricultural_waste", "garbage_soil_waste", "air_boure_pollute",
+"ecess_energ7", "geological_event", "volcano", "earth_quake", "avalanche", "climate_change", "hab_shift", "drought", "temp_extreme","storm_flood"))))
+
+###Delete all rows with zeros
 overlap_caribou_threats_single <- overlap_caribou_threats_single %>%
   filter(row_total != "0") 
 
-# to make a consistent data set replace any 2 values with a 1
+# Remove row 52 as sums to 0
+overlap_caribou_threats_single <- overlap_caribou_threats_single %>%
+  filter(row_number() != 52)
+
+#### to make a consistent data set replace any 2 values with a 1
 overlap_caribou_threats_single <- overlap_caribou_threats_single %>%
   mutate(across(everything(), ~ ifelse(. == 2, 1, .)))
 
-# Create subset using threat subcategories, and excluding overarching categories (that would be correlated with the sub categories)
-subset_data <- overlap_caribou_threats_single %>% select(16,17,18,20,21,22,23,25,26,27,29,30,31,32,34,35,36,37,39,40,41,43,44,45,47,48,49,50,51,52,54,55,56,57,58,59,61,62,63,65,66,67,68,69,70,71,72,73,74)
+###Create subset using threat subcategories, and excluding overarching categories (that would be correlated with the sub categories)
+subset_data <- overlap_caribou_threats_single %>% select(16,17,18,20,21,22,23,25,26,27,29,30,31,32,34,35,36,37,39,40, 41,43,44,45,47,48,49,50,51,52,54,55,56,57,58,59,61,62,63,65,66,67,68)
 
 # Convert all columns to factors
 subset_data <- subset_data %>% mutate(across(everything(), as.numeric))
@@ -67,7 +72,7 @@ library("FactoMineR")
 library("factoextra")
 
 # Create subset for MCA. This subset has the sub groups but not the group categories
-subset_data_MCA<- overlap_caribou_threats_single %>% select(16,17,18,20,21,22,23,25,26,27,29,30,31,32,34,35,36,37,39,40,41,43,44,45,47,48,49,50,51,52,54,55,56,57,58,59,61,62,63,65,66,67,68,69)
+subset_data_MCA<- overlap_caribou_threats_single %>% select(15,16,17,18,20,21,22,23,25,26,27,29,30,31,32,34,35,36,37,39,40,41,43,44,45,47,48,49,50,51,52,54,55,56,57,58,59,61,62,63,65,66,67,68,69)
 
 # Remove rows and columns with no variance
 subset_data_MCA <- subset_data_MCA[rowSums(is.na(subset_data_MCA)) != ncol(subset_data_MCA), ]
@@ -150,7 +155,6 @@ fviz_mca_ind(
 Compute similarity between boreal caribou and other SAR in their IUCN threats using the Jaccard index.
 ```{r jaccard, echo=TRUE}
 
-###################################################################################
 # Compute similarity between species and woodland caribou row using the Jaccard index
 
 library(vegan)
@@ -162,27 +166,30 @@ dist_matrix <- as.matrix(dist)
 dist_df <- as.data.frame(dist_matrix)
 
 # Extract row 42 from dist_df
-row_42 <- dist_df[42, ]
+row_17 <- dist_df[17, ]
 
 # make similarity matrix
 similarity_matrix <- 1 - dist_matrix
 
+# Convert matrix to a data frame
+sim_df <- as.data.frame(similarity_matrix)
+
 # Extract row 42 from similarity matrix
-row_42_sim <- similarity_matrix[42, ]
+row_17_sim <- sim_df[17, ]
 
 # Add row_42 as a column to overlap_caribou_threats_single
 overlap_caribou_threats_single <- overlap_caribou_threats_single %>%
-  mutate(Row42 = as.numeric(row_42))
+  mutate(row_17 = as.numeric(row_17))
 
-# Add row_42_sim as a column to overlap_caribou_threats_single
+# Add row_42_diss as a column to overlap_caribou_threats_single
 overlap_caribou_threats_single <- overlap_caribou_threats_single %>%
-  mutate(Row42_sim = as.numeric(row_42_sim))
+  mutate(row_17_sim = as.numeric(row_17_sim))
 
 # find species with jaccard scores of >0.5
 
 # Filter dataset for rows with similarity >0.5
 jaccard_0.5 <- overlap_caribou_threats_single %>%
-  filter(Row42_sim > 0.5)
+  filter(row_17_sim > 0.5)
 
 # Delete threat columns
 jaccard_0.5 <- jaccard_0.5 %>%
@@ -190,12 +197,12 @@ jaccard_0.5 <- jaccard_0.5 %>%
             41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,
             67,68,69))
 
-# look at species most dissismilar
-jaccard_0.04 <- overlap_caribou_threats_single %>%
-  filter(Row42_sim < 0.04)
+# look at species most dissimilar
+jaccard_0.2 <- overlap_caribou_threats_single %>%
+  filter(row_17_sim < 0.2)
 
 # Delete threat columns
-jaccard_0.04 <- jaccard_0.04 %>%
+jaccard_0.2 <- jaccard_0.2 %>%
   select(-c(15,16,17,18,19,20,21,22,23,24,25, 26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,
             41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,
             67,68,69))
@@ -206,18 +213,18 @@ jaccard_0.04 <- jaccard_0.04 %>%
 How many columns overlap?
 ```{r common_columns, echo=TRUE}
 ####look at the number of column in common between caribou and all other species in the dataset
-
-library(dplyr)
 # First, extract the row corresponding to "caribou"
 caribou_row <- overlap_caribou_threats_single %>% 
   filter(common_name == "caribou boreal population") %>%
-  select(-c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,70,71,72,73,74,75,76))  # Remove the Species column (if present)
+  select(c(16,17,18,20,21,22,23,25,26,27,29,30,31,32,34,35,36,37,39,40,
+           41,43,44,45,47,48,49,50,51,52,54,55,56,57,58,59,61,62,63,65,66,67,
+           68))
 
 # Create dataset to compare with
 species_all_row <- overlap_caribou_threats_single %>%
-  select(c(15,16,17,18,19,20,21,22,23,24,25, 26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,
-            41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,
-            67,68,69))
+  select(c(16,17,18,20,21,22,23,25,26,27,29,30,31,32,34,35,36,37,39,40,
+            41,43,44,45,47,48,49,50,51,52,54,55,56,57,58,59,61,62,63,65,66,67,
+            68))
 
 # Create a new dataset comparing "caribou" to all other rows (and count 1's)
 comparison <- species_all_row %>%
@@ -230,15 +237,6 @@ matching_ones <- comparison$matching_ones
 overlap_caribou_threats_single <- overlap_caribou_threats_single %>%
   mutate(matching_ones = as.numeric(matching_ones))
 
-# look at correlation between common_columns and jaccard
-correlation_test <- overlap_caribou_threats_single %>% select(3,6,12,70,72,73,75,76,77)
-
-numeric_vars <- correlation_test%>%
-  select(Percent_caribou, Total_area_km, Row42_sim, matching_ones)
-
-correlation_matrix <- cor(numeric_vars, use = "complete.obs")  # Use complete.obs to handle NAs
-correlation_matrix
-
 ```
 
 ## Check for correlations prior to running models
@@ -246,24 +244,20 @@ correlation_matrix
 Compute correlations between variables that could be included in the models. None appear to have correlation coefficients greater than 0.4.
 ```{r correlation, echo=TRUE}
 
-# Change some columns to factors
-#overlap_caribou_threats_single <- overlap_caribou_threats_single %>%
-  #mutate(
-    #sara_status = as.factor(sara_status),
-    #taxonomic_group = as.character(taxonomic_group))
+library(corrplot)
 
-model_subset <- overlap_caribou_threats_single %>% select(3,6,12,70,72,73,75,76)
+model_subset <- overlap_caribou_threats_single %>% select(3,6,12,70,72,73,75,76,77)
 
-#numeric_vars <- model_subset %>%
-  #select(Percent_caribou, Total_area_km, sara_status, taxonomic_group) %>%
-  #mutate(  sara_status = as.numeric(as.factor(sara_status)),  # Convert factors to numeric
-  #taxonomic_group = as.numeric(as.factor(taxonomic_group))
- #)
+numeric_vars <- model_subset %>%
+  select(Percent_caribou, Total_area_km, sara_status, taxonomic_group, row_17, row_17_sim, matching_ones) %>%
+  mutate(
+  sara_status = as.numeric(as.factor(sara_status)),  # Convert factors to numeric
+  taxonomic_group = as.numeric(as.factor(taxonomic_group))
+  )
 
 correlation_matrix <- cor(numeric_vars, use = "complete.obs")  # Use complete.obs to handle NAs
+corrplot(correlation_matrix, method="circle")
 
-# Print the correlation matrix
-print(correlation_matrix)
 ```
 
 ## Model correlates of threat overlap with caribou
@@ -276,11 +270,15 @@ Quasibinomial model was chosen as the response variable (Jaccard index) goes fro
 # Run some glms looking at descriptors of threat overlap with caribou
 
 library(stats)
-m2 <- glm(Row42_sim~Percent_caribou + Total_area_km + sara_status + taxonomic_group, data=model_subset,
+m2 <- glm(row_17_sim~Percent_caribou + Total_area_km + sara_status + taxonomic_group, data=overlap_caribou_threats_single,
           family=quasibinomial(link = "logit"))
 
 summary(m2)
-unique(overlap_caribou_threats_single$taxonomic_group)
+
+m3 <- glm(matching_ones~Percent_caribou + Total_area_km + sara_status + taxonomic_group, data=overlap_caribou_threats_single,
+          family=poisson)
+
+summary(m3)
 ```
 
 Evidence of greater threat overlap with caribou for species with greater range sizes, more overlap in their range with caribou, and for mammals and birds.
