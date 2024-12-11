@@ -38,6 +38,10 @@ overlap_caribou_threats_single <- overlap_caribou_threats_single %>%
 overlap_caribou_threats_single <- overlap_caribou_threats_single %>%
   filter(row_total != "0") 
 
+# Remove row 52 as sums to 0
+overlap_caribou_threats_single <- overlap_caribou_threats_single %>%
+  filter(row_number() != 52)
+
 #### to make a consistent data set replace any 2 values with a 1
 overlap_caribou_threats_single <- overlap_caribou_threats_single %>%
   mutate(across(everything(), ~ ifelse(. == 2, 1, .)))
@@ -48,6 +52,14 @@ subset_data <- overlap_caribou_threats_single %>% select(16,17,18,20,21,22,23,25
                                                         68)
 # Convert all columns to factors
 subset_data <- subset_data %>% mutate(across(everything(), as.numeric))
+
+###Create subset using all categories and subcategories
+subset_data_large <- overlap_caribou_threats_single %>% select(15,16,17,18,19,20,21,22,23,24,25,26,27,29,30,31,32,33,34,35,36,37,38,39,40,
+                                                         41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,
+                                                         68)
+# Convert all columns to factors
+subset_data_large <- subset_data_large %>% mutate(across(everything(), as.numeric))
+
 
 
 
@@ -80,6 +92,24 @@ overlap_caribou_threats_single <- overlap_caribou_threats_single %>%
 # Add row_42_diss as a column to overlap_caribou_threats_single
 overlap_caribou_threats_single <- overlap_caribou_threats_single %>%
   mutate(row_17_sim = as.numeric(row_17_sim))
+
+### create jaccard index for big subset
+dist_large <-vegdist(subset_data_large, method = "jaccard")
+# Convert dist object to a matrix
+dist_matrix_large <- as.matrix(dist_large)
+dist_df_large <- as.data.frame(dist_matrix_large)
+row_17_L <- dist_df_large[17, ]
+
+# make similarity matrix
+similarity_matrix_large <- 1 - dist_matrix_large
+sim_df_large <- as.data.frame(similarity_matrix_large)
+row_17_sim_L <- sim_df_large[17, ]
+
+# Add rows as a column to overlap_caribou_threats_single
+overlap_caribou_threats_single <- overlap_caribou_threats_single %>%
+  mutate(row_17_L = as.numeric(row_17_L))
+overlap_caribou_threats_single <- overlap_caribou_threats_single %>%
+  mutate(row_17_sim_L = as.numeric(row_17_sim_L))
 
 # find species with jaccard scores of >0.5
 
@@ -385,27 +415,11 @@ res.desc2[[2]]
 ## Compute correlations
 ## Change some columns to factors
 library(corrplot)
-levels(overlap_caribou_threats_single$taxonomic_group) <- c("Amphibians", "Arthropods", "Birds", "Lichens",           
-                                                            "Mammals_(terrestrial)", "Molluscs", "Mosses", "Reptiles", "Vascular_Plants" )
-levels(overlap_caribou_threats_single$sara_status) <- c("Endangered", "Threatened", "Special Concern")
 
-overlap_caribou_threats_single$taxonomic_group <- factor(overlap_caribou_threats_single$taxonomic_group, 
-                                                         levels = c("Amphibians", "Arthropods", "Birds", "Lichens",           
-                                                                    "Mammals_(terrestrial)", "Molluscs", "Mosses", "Reptiles", "Vascular_Plants"))
-overlap_caribou_threats_single$sara_status <- factor(overlap_caribou_threats_single$sara_status, 
-                                                     levels = c("Endangered", "Threatened", "Special Concern"))
-str(overlap_caribou_threats_single$taxonomic_group)
-str(overlap_caribou_threats_single$sara_status)
-
-overlap_caribou_threats_single <- overlap_caribou_threats_single %>%
-  mutate(
-    sara_status = as.factor(sara_status),
-    taxonomic_group = as.factor(taxonomic_group))
-
-model_subset <- overlap_caribou_threats_single %>% select(3,6,12,70,72,73,75,76,77)
+model_subset <- overlap_caribou_threats_single %>% select(3,6,12,70,72,73,75,76,77,78,79)
 
 numeric_vars <- model_subset %>%
-  select(Percent_caribou, Total_area_km, sara_status, taxonomic_group, row_17, row_17_sim, matching_ones) %>%
+  select(Percent_caribou, Total_area_km, sara_status, taxonomic_group, row_17, row_17_sim, matching_ones, row_17_L,row_17_sim_L) %>%
   mutate(
   sara_status = as.numeric(as.factor(sara_status)),  # Convert factors to numeric
   taxonomic_group = as.numeric(as.factor(taxonomic_group))
@@ -421,25 +435,32 @@ print(correlation_matrix)
 levels(overlap_caribou_threats_single$taxonomic_group)
 
 ## Run some glms looking at descriptors of threat overlap with caribou
+# delete row 17
+overlap_caribou_threats_single <- overlap_caribou_threats_single %>%
+  filter(row_number() != 17)
 
 library(stats)
-m2 <- glm(row_17_sim~Percent_caribou + Total_area_km + sara_status + taxonomic_group, data=overlap_caribou_threats_single,
-          family=quasibinomial(link = "logit"))
+library(gtools)
+m1 <- glm(row_17_sim~ scale(Percent_caribou) + scale(Total_area_km) + sara_status + taxonomic_group, 
+          data=overlap_caribou_threats_single, family=quasibinomial(link = "logit"))
+summary(m1)
 
+
+m2 <- glm(cbind(matching_ones, 33-matching_ones)~ scale(Percent_caribou) + scale(Total_area_km) + sara_status + taxonomic_group, data=overlap_caribou_threats_single,
+          family=binomial)
 summary(m2)
 
-m3 <- glm(matching_ones~Percent_caribou + Total_area_km + sara_status + taxonomic_group, data=overlap_caribou_threats_single,
-          family=poisson)
+
+m3 <- glm(row_17_sim_L~scale(Percent_caribou) + scale(Total_area_km) + sara_status + taxonomic_group, data=overlap_caribou_threats_single,
+          family=quasibinomial(link = "logit"))
 
 summary(m3)
+d3 <-dredge(m3)
 
-model.matrix(row_17_sim ~ taxonomic_group + sara_status, data = overlap_caribou_threats_single)
 
 # View the levels of a factor variable
 levels(overlap_caribou_threats_single$taxonomic_group)
 levels(overlap_caribou_threats_single$sara_status)
-
-
 
 # Proportion of deviance explained
 null_dev <- summary(m2)$null.deviance

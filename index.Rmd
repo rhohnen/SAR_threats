@@ -270,19 +270,41 @@ Quasibinomial model was chosen as the response variable (Jaccard index) goes fro
 # Run some glms looking at descriptors of threat overlap with caribou
 
 library(stats)
-m2 <- glm(row_17_sim~Percent_caribou + Total_area_km + sara_status + taxonomic_group, data=overlap_caribou_threats_single,
-          family=quasibinomial(link = "logit"))
+# delete row 17 (carabou row)
+overlap_caribou_threats_single <- overlap_caribou_threats_single %>%
+  filter(row_number() != 17)
 
+library(stats)
+library(gtools)
+m1 <- glm(row_17_sim~ scale(Percent_caribou) + scale(Total_area_km) + sara_status + taxonomic_group, 
+          data=overlap_caribou_threats_single, family=quasibinomial(link = "logit"))
+summary(m1)
+
+
+m2 <- glm(cbind(matching_ones, 33-matching_ones)~ scale(Percent_caribou) + scale(Total_area_km) + sara_status + taxonomic_group, data=overlap_caribou_threats_single,
+          family=binomial)
 summary(m2)
 
-m3 <- glm(matching_ones~Percent_caribou + Total_area_km + sara_status + taxonomic_group, data=overlap_caribou_threats_single,
-          family=poisson)
 
-summary(m3)
 ```
 
 Evidence of greater threat overlap with caribou for species with greater range sizes, more overlap in their range with caribou, and for mammals and birds.
 ```{r check fit, echo=TRUE}
+
+# Check fit
+null_dev <- summary(m1)$null.deviance
+resid_dev <- summary(m1)$deviance
+
+prop_deviance_explained <- (null_dev - resid_dev) / null_dev
+prop_deviance_explained
+
+# Residuals vs. Fitted values
+plot(fitted(m1), residuals(m1), main = "Residuals vs. Fitted")
+abline(h = 0, col = "red")
+
+# Normal Q-Q Plot of residuals
+qqnorm(residuals(m1))
+qqline(residuals(m1), col = "blue")
 
 # Check fit
 null_dev <- summary(m2)$null.deviance
