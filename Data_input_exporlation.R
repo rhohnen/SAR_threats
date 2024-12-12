@@ -61,8 +61,6 @@ subset_data_large <- overlap_caribou_threats_single %>% select(15,16,17,18,19,20
 subset_data_large <- subset_data_large %>% mutate(across(everything(), as.numeric))
 
 
-
-
 ###################################################################################
 ### try to compute similarity between species and woodland caribou row using the Jaccard index
 library(vegan)
@@ -200,7 +198,7 @@ var
 
 # Coordinates
 head(var$coord)
-# Cos2: quality on the factore map
+# Cos2: quality on the factor map
 head(var$cos2)
 # Contributions to the principal components
 head(var$contrib)
@@ -237,7 +235,8 @@ fviz_mca_var(MCA, col.var = "contrib",
              repel = TRUE, # avoid text overlapping (slow)
              ggtheme = theme_minimal()
 )
-### graph idividuals (species in this case)
+
+### graph individuals (species in this case)
 
 ind <- get_mca_ind(MCA)
 ind
@@ -257,23 +256,26 @@ fviz_mca_ind(MCA, col.ind = "cos2",
 
 ### group by external variable 
 # habillage = external grouping variable here taxonimic group
-fviz_mca_ind(MCA, habillage = overlap_caribou_threats_single$taxonomic_group, 
-             addEllipses = FALSE)
+taxons <- as.factor(overlap_caribou_threats_single$taxonomic_group)
+fviz_mca_ind(MCA, habillage = taxons, addEllipses = FALSE)
 
-# habillage = external grouping variable here taxonimic group
+# Group by overlap with caribou
+overlap <- as.numeric(overlap_caribou_threats_single$Percent_caribou)
 fviz_mca_ind(
   MCA, 
   geom = "point", 
-  col.ind = overlap_caribou_threats_single$Intersect_caribou_km, # Use Area for coloring
-  gradient.cols = c("blue", "yellow", "red"), # Define a color gradient
+  col.ind = overlap,  # Use numeric vector for coloring
+  gradient.cols = c("blue", "yellow", "red"),  # Continuous gradient
   addEllipses = FALSE
 ) +
-  labs(color = "Area") # Label for the color legend
+  labs(color = "Overlap") # Adjust legend label
 
+# Group by total range of caribou
+range <- as.numeric(overlap_caribou_threats_single$Total_area_km)
 fviz_mca_ind(
   MCA, 
   geom = "point", 
-  col.ind = overlap_caribou_threats_single$Total_area_km, # Use Area for coloring
+  col.ind = range, # Use Area for coloring
   gradient.cols = c("blue", "yellow", "red"), # Define a color gradient
   addEllipses = FALSE
 ) +
@@ -450,13 +452,11 @@ m2 <- glm(cbind(matching_ones, 33-matching_ones)~ scale(Percent_caribou) + scale
           family=binomial)
 summary(m2)
 
-
 m3 <- glm(row_17_sim_L~scale(Percent_caribou) + scale(Total_area_km) + sara_status + taxonomic_group, data=overlap_caribou_threats_single,
           family=quasibinomial(link = "logit"))
 
 summary(m3)
 d3 <-dredge(m3)
-
 
 # View the levels of a factor variable
 levels(overlap_caribou_threats_single$taxonomic_group)

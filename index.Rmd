@@ -68,11 +68,13 @@ subset_data <- subset_data %>% mutate(across(everything(), as.numeric))
 Examine patterns in how threats are shared between taxonomic groups, range areas and range overlap with caribou using an MCA.
 
 ```{r MCA, echo=TRUE}
+### Run MCA to visualize differences based on taxonomic group
+### try MCA
 library("FactoMineR")
 library("factoextra")
 
-# Create subset for MCA. This subset has the sub groups but not the group categories
-subset_data_MCA<- overlap_caribou_threats_single %>% select(15,16,17,18,20,21,22,23,25,26,27,29,30,31,32,34,35,36,37,39,40,41,43,44,45,47,48,49,50,51,52,54,55,56,57,58,59,61,62,63,65,66,67,68,69)
+###Create subset for MCA. This subset has the sub groups but not the group categories
+subset_data_MCA<- overlap_caribou_threats_single %>% select(c(16,17,18,20,21,22,23,25,26,27,29,30,31,32,34,35,36,37,39,40,41,43,44,45,47,48,49,50,51,52,54,55,56,57,58,59,61,62,63,65,66,67,68))
 
 # Remove rows and columns with no variance
 subset_data_MCA <- subset_data_MCA[rowSums(is.na(subset_data_MCA)) != ncol(subset_data_MCA), ]
@@ -86,64 +88,63 @@ subset_data_MCA <- subset_data_MCA %>%
 # Convert all columns to factors
 subset_data_MCA <- data.frame(lapply(subset_data_MCA, as.factor))
 
-# run MCA
+#run MCA
 MCA <-MCA(subset_data_MCA, ncp = 5, graph = FALSE)
-```
 
-# Plot the MCA
-
-```{r MCA_plots, echo=TRUE}
 eig.val <- get_eigenvalue(MCA)
-# head(eig.val)
 
-# Plot % variance explained
+# plot % variance explained
 fviz_screeplot(MCA, addlabels = TRUE, ylim = c(0, 45))
 
 var <- get_mca_var(MCA)
-var
+fviz_mca_var(MCA, col.var="black", shape.var = 15,
+             repel = TRUE)
 
-# Plot how threats contribute to each axis
-fviz_mca_var(MCA, choice = "mca.cor", 
-             repel = TRUE, # Avoid text overlapping (slow)
-             ggtheme = theme_minimal())
+fviz_contrib(MCA, choice = "var", axes = 1, top = 15)# Contributions of rows to dimension 1
+fviz_contrib(MCA, choice = "var", axes = 2, top = 15)# Contributions of rows to dimension 2
+fviz_contrib(MCA, choice = "var", axes = 1:2, top = 15)# Total contribution to dimension 1 and 2
 
-# Plot how species fit on each axis
-#fviz_mca_var(MCA, col.var="black", shape.var = 15,
-             #repel = TRUE)
+fviz_mca_var(MCA, col.var = "contrib",
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"), 
+             repel = TRUE, # avoid text overlapping (slow)
+             ggtheme = theme_minimal()
+)
+### graph individuals (species in this case)
 
-# Graph individuals (species in this case)
 ind <- get_mca_ind(MCA)
+
 ```
 # Plot species on the MCA in relation to taxonomic group, range overlap with acribou and range size
 
 ```{r MCA_plots2, echo=TRUE}
-# Visualize individuals (species here) based on cos2 loading
+### visualize only individuals (species here)
 fviz_mca_ind(MCA, col.ind = "cos2", 
              gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
              repel = TRUE, # Avoid text overlapping (slow if many points)
              ggtheme = theme_minimal())
 
-# Visualize individuals and group by taxonomic group
-# habillage = external grouping variable here taxonomic group
-overlap_caribou_threats_single$taxonomic_group <- as.factor(overlap_caribou_threats_single$taxonomic_group)
-fviz_mca_ind(MCA, habillage = overlap_caribou_threats_single$taxonomic_group, 
-             addEllipses = FALSE)
+### group by external variable 
+# habillage = external grouping variable here taxonimic group
+taxons <- as.factor(overlap_caribou_threats_single$taxonomic_group)
+fviz_mca_ind(MCA, habillage = taxons, addEllipses = FALSE)
 
-# Visualize individuals and group by range overlap with caribou
+# Group by overlap with caribou
+overlap <- as.numeric(overlap_caribou_threats_single$Percent_caribou)
 fviz_mca_ind(
   MCA, 
   geom = "point", 
-  col.ind = overlap_caribou_threats_single$Intersect_caribou_km, # Use Area for coloring
-  gradient.cols = c("blue", "yellow", "red"), # Define a color gradient
+  col.ind = overlap,  # Use numeric vector for coloring
+  gradient.cols = c("blue", "yellow", "red"),  # Continuous gradient
   addEllipses = FALSE
 ) +
-  labs(color = "Area") # Label for the color legend
+  labs(color = "Overlap") # Adjust legend label
 
-# Visualize individuals and group by range size
+# Group by total range of caribou
+range <- as.numeric(overlap_caribou_threats_single$Total_area_km)
 fviz_mca_ind(
   MCA, 
   geom = "point", 
-  col.ind = overlap_caribou_threats_single$Total_area_km, # Use Area for coloring
+  col.ind = range, # Use Area for coloring
   gradient.cols = c("blue", "yellow", "red"), # Define a color gradient
   addEllipses = FALSE
 ) +
