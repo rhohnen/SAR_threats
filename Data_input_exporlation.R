@@ -441,22 +441,74 @@ levels(overlap_caribou_threats_single$taxonomic_group)
 overlap_caribou_threats_single <- overlap_caribou_threats_single %>%
   filter(row_number() != 17)
 
+histogram(overlap_caribou_threats_single$row_17_sim)
+overlap_caribou_threats_single$taxonomic_group <- factor(overlap_caribou_threats_single$taxonomic_group, 
+                                        levels = c("Molluscs", "Arthropods", "Birds", "Lichens", 
+                                        "Mammals_(terrestrial)", "Mosses", "Reptiles", "Vascular_Plants"))
+overlap_caribou_threats_single$taxonomic_group <- relevel(overlap_caribou_threats_single$taxonomic_group, ref = "Mosses")
+
 library(stats)
 library(gtools)
-m1 <- glm(row_17_sim~ scale(Percent_caribou) + scale(Total_area_km) + sara_status + taxonomic_group, 
-          data=overlap_caribou_threats_single, family=quasibinomial(link = "logit"))
-summary(m1)
+library(MuMIn)
 
 
-m2 <- glm(cbind(matching_ones, 33-matching_ones)~ scale(Percent_caribou) + scale(Total_area_km) + sara_status + taxonomic_group, data=overlap_caribou_threats_single,
-          family=binomial)
-summary(m2)
 
+n1 <- lm(row_17_sim~ scale(Percent_caribou), data=overlap_caribou_threats_single)
+n2 <- lm(row_17_sim~ scale(Total_area_km), data=overlap_caribou_threats_single)
+n3 <- lm(row_17_sim~ sara_status, data=overlap_caribou_threats_single)
+n4 <- lm(row_17_sim~ taxonomic_group, data=overlap_caribou_threats_single)
+n5 <- lm(row_17_sim~ scale(Percent_caribou) + scale(Total_area_km) + sara_status + taxonomic_group, data=overlap_caribou_threats_single)
+n6 <- lm(row_17_sim~ 1, data=overlap_caribou_threats_single)
+
+summary(n4)
+
+fmList<-model.sel(n1=n1,n2=n2,n3=n3,n4=n4,n5=n5,n6=n6)
+fmList
+summary(model.avg(fmList, subset = delta < 2))
+
+### other options
+
+a1 <- lm(logit(row_17_sim)~ scale(Percent_caribou), data=overlap_caribou_threats_single)
+a2 <- lm(logit(row_17_sim)~ scale(Total_area_km), data=overlap_caribou_threats_single)
+a3 <- lm(logit(row_17_sim)~ sara_status, data=overlap_caribou_threats_single)
+a4 <- lm(logit(row_17_sim)~ taxonomic_group, data=overlap_caribou_threats_single)
+a5 <- lm(logit(row_17_sim)~ scale(Percent_caribou) + scale(Total_area_km) + sara_status + taxonomic_group, 
+         data=overlap_caribou_threats_single)
+a6 <- lm(logit(row_17_sim)~ 1, data=overlap_caribou_threats_single)
+summary(a4)
+fmList2<-model.sel(a1=a1,a2=a2,a3=a3,a4=a4,a5=a5,a6=a6)
+fmList2
+
+
+b1 <- glm(round(cbind(row_17_sim, 1)*100)~ scale(Percent_caribou), data=overlap_caribou_threats_single, family=binomial)
+b2 <- glm(round(cbind(row_17_sim, 1)*100)~ scale(Total_area_km), data=overlap_caribou_threats_single,family=binomial)
+b3 <- glm(round(cbind(row_17_sim, 1)*100)~ sara_status, data=overlap_caribou_threats_single,family=binomial)
+b4 <- glm(round(cbind(row_17_sim, 1)*100)~ taxonomic_group, data=overlap_caribou_threats_single,family=binomial)
+b5 <- glm(round(cbind(row_17_sim, 1)*100)~ scale(Percent_caribou) + scale(Total_area_km) + sara_status + taxonomic_group, 
+         data=overlap_caribou_threats_single,family=binomial)
+b6 <- glm(round(cbind(row_17_sim, 1)*100)~ 1, data=overlap_caribou_threats_single,family=binomial)
+
+fmList3<-model.sel(b1=b1, b2=b2, b3=b3, b4=b4, b5=b5, b6=b6)
+fmList3
+summary(b5)
+
+#m1 <- glm(cbind(matching_ones, 33-matching_ones)~ scale(Percent_caribou), data=overlap_caribou_threats_single,family=binomial)
+#m2 <- glm(cbind(matching_ones, 33-matching_ones)~ scale(Total_area_km), data=overlap_caribou_threats_single,family=binomial)
+#m3 <- glm(cbind(matching_ones, 33-matching_ones)~sara_status, data=overlap_caribou_threats_single,family=binomial)
+#m4 <- glm(cbind(matching_ones, 33-matching_ones)~ taxonomic_group, data=overlap_caribou_threats_single,family=binomial)
+#m5 <- glm(cbind(matching_ones, 33-matching_ones)~ scale(Percent_caribou) + scale(Total_area_km), data=overlap_caribou_threats_single,family=binomial)
+#m6 <- glm(cbind(matching_ones, 33-matching_ones)~ scale(Percent_caribou) + scale(Total_area_km) + sara_status + taxonomic_group, data=overlap_caribou_threats_single,family=binomial)
+#m7 <- glm(cbind(matching_ones, 33-matching_ones)~ 1, data=overlap_caribou_threats_single,family=binomial)
+
+#fmList4-model.sel(m1=m1, m2=m2, m3=m3, m4=m4, m5=m5, m6=m6)
+#fmList4
+
+summary(m6)
+
+coef(fmList)
 m3 <- glm(row_17_sim_L~scale(Percent_caribou) + scale(Total_area_km) + sara_status + taxonomic_group, data=overlap_caribou_threats_single,
           family=quasibinomial(link = "logit"))
 
-summary(m3)
-d3 <-dredge(m3)
 
 # View the levels of a factor variable
 levels(overlap_caribou_threats_single$taxonomic_group)
@@ -474,10 +526,10 @@ cat("Dispersion Parameter: ", dispersion, "\n")
 
 # Residual Diagnostics
 par(mfrow = c(1, 2)) # Plot side by side
-plot(fitted(m2), residuals(m2), main = "Residuals vs Fitted")
+plot(fitted(b5), residuals(b5), main = "Residuals vs Fitted")
 abline(h = 0, col = "red")
-qqnorm(residuals(m2))
-qqline(residuals(m2), col = "blue")
+qqnorm(residuals(b5))
+qqline(residuals(b5), col = "blue")
 
 
 ## Plot SAR taxonomic group and caribou range overlap
@@ -510,3 +562,101 @@ ggplot(overlap_long, aes(x = Group, y = Value, fill = Metric)) +
     axis.title = element_text(size = 18),  # Axis titles
     axis.text = element_text(size = 16),  # Axis text
   )
+
+
+#########################################################################################################
+### What are the most common threats to SAR in Canada?
+### How do these vary from the species within the caribou range, and those listed for caribou?
+### First make data set
+# Filter rows where percent_caribou > 0
+
+# Replace spaces with underscores in a specific column (taxonomic_group)
+threats_all <- threats %>%
+  mutate(taxonomic_group = gsub(" ", "_", taxonomic_group))
+
+# Keep only the most recent year_published for each common_name
+threats_all <- threats_all %>%
+  group_by(common_name) %>%
+  filter(year_published == max(year_published)) %>%
+  ungroup()
+
+###delete caribou that aren't relevant and multiples of the same species that weren't eliminated with the process above
+threats_all <- threats_all %>%
+  filter(!(rowID %in% c("1605", "631","1545", "732","615", "612", "639","663", "114",
+                        "889", "662","221", "228", "909", "579", "697", "710", "320",
+                        "543", "358", "923", "567")))
+
+#### to make a consistent data set replace any 2 values with a 1
+threats_all <- threats_all %>%
+  mutate(across(everything(), ~ ifelse(. == 2, 1, .)))
+
+library(tidyr)
+subset_data_caribou_title <- overlap_caribou_threats_single %>% select(15,19,24,28,33,38,42,46,53,60,64,69)
+subset_cat_title <- threats_all %>% select(15,19,24,28,33,38,42,46,53,60,64,69)
+
+summed_threats_caribou <- subset_data_caribou_title %>% 
+  summarise(across(everything(), sum)) %>%
+  pivot_longer(everything(), names_to = "Threat", values_to = "Summed_Species_cara") 
+
+summed_threats_title <- subset_cat_title %>% 
+  summarise(across(everything(), sum)) %>%
+  pivot_longer(everything(), names_to = "Threat", values_to = "Summed_Species_all")
+
+Threats_both <- summed_threats_title %>%
+  mutate(Summed_Species_cara = summed_threats_caribou$Summed_Species_cara)
+
+## Calculate proportions of all species
+Threats_both <- Threats_both %>%
+  mutate(Proportion_all = (Summed_Species_all/612)*100)
+
+## Calculate proportions of caribou overlapping species
+Threats_both <- Threats_both %>%
+  mutate(Proportion_cara = (Summed_Species_cara/91)*100)
+
+Threats_both2 <- Threats_both %>% 
+  pivot_longer(cols = starts_with("Proportion"), names_to = "type", values_to = "Proportion")
+
+# Rename categories
+Threats_both2 <- Threats_both2 %>%
+  mutate(Threat = recode(Threat, 
+                        "agri_aqua" = "Agriculture and aquaculture",
+                        "bio_resource_use" = "Biological resource use",
+                        "climate_change" = "Climate change",
+                         "energy" = "Energy production and mining",
+                         "geological_event" = "Geological events",
+                         "human_disturbance" = "Human disturbance",
+                         "invasive_species" = "Invasive and problematic species",
+                         "natural_sys_change" = "Natural system modifications",
+                         "other_impacts" = "Other options",
+                         "pollution" = "Pollution",
+                         "res_comm_development" = "Residential and commercial development",
+                         "transport_service" = "Transport and service corridors"))
+
+# Specify the desired order of categories
+desired_order3 <- c("Invasive and problematic species","Natural system modifications","Pollution","Climate change",
+                    "Human disturbance", "Residential and commercial development","Biological resource use",
+                    "Transport and service corridors",  "Agriculture and aquaculture",
+                    "Energy production and mining", "Geological events", "Other options")  # Replace with actual categories
+
+# Reorder the factor levels in the data frame
+Threats_both2$Threat <- factor(Threats_both$Threat, levels = desired_order3)
+
+
+# Create grouped bar plot for threats to all SAR
+ggplot(Threats_both2, aes(x = Threat, y = Proportion, fill=type, width=0.45)) +
+  geom_bar(stat = "identity", position='dodge') +
+  labs(x = "Threat",
+       y = "Number of species") +
+  theme_minimal() +
+  theme(
+    axis.title.y = element_text(margin = margin(t = 0, r = 40, b = 0, l = 0)),
+    axis.text.x = element_text(angle = 60, hjust = 1, margin = margin(t = 0, r = 0, b = 20, l = 0)),
+    panel.background = element_rect(fill = 'white', colour = 'darkgrey'),
+    panel.grid.major = element_line(colour = 'white'),
+    text = element_text(size = 16),  # Increase overall font size
+    axis.title = element_text(size = 18),  # Axis titles
+    axis.text = element_text(size = 16),  # Axis text
+  )
+
+
+

@@ -338,6 +338,22 @@ overlap_long <- overlap %>%
                names_to = "Metric", 
                values_to = "Value")
 
+# Specify the desired order of categories
+desired_order4 <- c(
+  "Vascular Plants",
+  "Birds",
+  "Arthropods",
+  "Reptiles",
+  "Amphibians",
+  "Mammals",
+  "Lichens",
+  "Molluscs",
+  "Mosses"
+)
+
+# Reorder the factor levels in the data frame
+overlap_long$Group <- factor(overlap_long$Group, levels = desired_order4)
+
 # Create grouped bar plot
 ggplot(overlap_long, aes(x = Group, y = Value, fill = Metric)) +
   geom_bar(stat = "identity", position = "dodge") +
@@ -348,6 +364,7 @@ ggplot(overlap_long, aes(x = Group, y = Value, fill = Metric)) +
                     labels = c("SAR", "SAR that overlap with caribou", "SAR that overlap with caribou >20%")) +
   theme_minimal() +
   theme(
+    axis.title.y = element_text(margin = margin(t = 0, r = 30, b = 0, l = 0)),
     axis.text.x = element_text(angle = 45, hjust = 1),
     panel.background = element_rect(fill = 'white', colour = 'darkgrey'),
     panel.grid.major = element_line(colour = 'white'),
@@ -357,5 +374,116 @@ ggplot(overlap_long, aes(x = Group, y = Value, fill = Metric)) +
   )
 
 ```
+## What are the most common threats to SAR in Canada?
 
+How do these vary from the species within the caribou range, and those listed for caribou?
+```{r common_threats, echo=TRUE}
 
+### First make data set
+# Filter rows where percent_caribou > 0
+
+# Replace spaces with underscores in a specific column (taxonomic_group)
+threats_all <- threats %>%
+  mutate(taxonomic_group = gsub(" ", "_", taxonomic_group))
+
+# Keep only the most recent year_published for each common_name
+threats_all <- threats_all %>%
+  group_by(common_name) %>%
+  filter(year_published == max(year_published)) %>%
+  ungroup()
+
+###delete caribou that aren't relevant and multiples of the same species that weren't eliminated with the process above
+threats_all <- threats_all %>%
+  filter(!(rowID %in% c("1605", "631","1545", "732","615", "612", "639","663", "114",
+                        "889", "662","221", "228", "909", "579", "697", "710", "320",
+                        "543", "358", "923", "567")))
+
+#### to make a consistent data set replace any 2 values with a 1
+threats_all <- threats_all %>%
+  mutate(across(everything(), ~ ifelse(. == 2, 1, .)))
+
+library(tidyr)
+subset_data_caribou_title <- overlap_caribou_threats_single %>% select(15,19,24,28,33,38,42,46,53,60,64,69)
+subset_cat_title <- threats_all %>% select(15,19,24,28,33,38,42,46,53,60,64,69)
+
+summed_threats_caribou <- subset_data_caribou_title %>% 
+  summarise(across(everything(), sum)) %>%
+  pivot_longer(everything(), names_to = "Threat", values_to = "Summed_Species_cara") 
+
+summed_threats_title <- subset_cat_title %>% 
+  summarise(across(everything(), sum)) %>%
+  pivot_longer(everything(), names_to = "Threat", values_to = "Summed_Species_all")
+
+Threats_both <- summed_threats_title %>%
+  mutate(Summed_Species_cara = summed_threats_caribou$Summed_Species_cara)
+
+## Calculate proportions of all species
+Threats_both <- Threats_both %>%
+  mutate(Proportion_all = (Summed_Species_all/612)*100)
+
+## Calculate proportions of caribou overlapping species
+Threats_both <- Threats_both %>%
+  mutate(Proportion_cara = (Summed_Species_cara/91)*100)
+
+Threats_both2 <- Threats_both %>% 
+  pivot_longer(cols = starts_with("Proportion"), names_to = "type", values_to = "Proportion")
+
+# Rename categories
+Threats_both2 <- Threats_both2 %>%
+  mutate(Threat = recode(Threat, 
+                        "agri_aqua" = "Agriculture and aquaculture",
+                        "bio_resource_use" = "Biological resource use",
+                        "climate_change" = "Climate change",
+                         "energy" = "Energy production and mining",
+                         "geological_event" = "Geological events",
+                         "human_disturbance" = "Human disturbance",
+                         "invasive_species" = "Invasive and problematic species",
+                         "natural_sys_change" = "Natural system modifications",
+                         "other_impacts" = "Other options",
+                         "pollution" = "Pollution",
+                         "res_comm_development" = "Residential and commercial development",
+                         "transport_service" = "Transport and service corridors"))
+
+# Specify the desired order of categories
+desired_order3 <- c(
+  "Invasive and problematic species",
+  "Natural system modifications",
+  "Pollution",
+  "Climate change",
+  "Human disturbance",
+  "Residential and commercial development",
+  "Biological resource use",
+  "Transport and service corridors",
+  "Agriculture and aquaculture",
+  "Energy production and mining",
+  "Geological events",
+  "Other options"
+)
+# Reorder the factor levels in the data frame
+Threats_both2$Threat <- factor(Threats_both2$Threat, levels = desired_order3)
+
+# Define custom colors
+custom_colors <- c(
+  'Proportion_all' = 'deepskyblue4',  # Dark teal color for 'wolverine'
+  'Proportion_cara' = 'cadetblue2'  # Light blue color for 'woodland caribou'
+)
+
+# Create grouped bar plot for threats to all SAR
+ggplot(Threats_both2, aes(x = Threat, y = Proportion, fill=type, width=0.45)) +
+  geom_bar(stat = "identity", position='dodge') +
+  labs(x = "Threat",
+       y = "Proportion of species") +
+  theme_minimal() +
+  scale_fill_manual(values = custom_colors) +
+  theme(
+    axis.title.y = element_text(margin = margin(t = 0, r = 50, b = 0, l = 0)),
+    axis.text.x = element_text(angle = 65, hjust = 1, margin = margin(t = 0, r = 0, b = 20, l = 0)),
+    panel.background = element_rect(fill = 'white', colour = 'darkgrey'),
+    panel.grid.major = element_line(colour = 'white'),
+    text = element_text(size = 16),  # Increase overall font size
+    axis.title = element_text(size = 18),  # Axis titles
+    axis.text = element_text(size = 16),  # Axis text
+    legend.position = "none"
+  )
+
+```
