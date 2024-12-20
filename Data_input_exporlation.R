@@ -111,22 +111,22 @@ overlap_caribou_threats_single <- overlap_caribou_threats_single %>%
 
 # find species with jaccard scores of >0.5
 
-# Filter dataset for rows with similarity >0.5
-jaccard_0.5 <- overlap_caribou_threats_single %>%
-  filter(row_17_sim > 0.5)
+# Filter dataset for rows with similarity >0.48 to find ten most similar
+jaccard_0.48 <- overlap_caribou_threats_single %>%
+  filter(row_17_sim > 0.48)
 
 # Delete threat columns
-jaccard_0.5 <- jaccard_0.5 %>%
+jaccard_0.48 <- jaccard_0.48 %>%
   select(-c(15,16,17,18,19,20,21,22,23,24,25, 26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,
             41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,
             67,68,69))
 
-# look at species most dissimilar
-jaccard_0.2 <- overlap_caribou_threats_single %>%
-  filter(row_17_sim < 0.2)
+# find 10ish species most dissimilar
+jaccard_0.21 <- overlap_caribou_threats_single %>%
+  filter(row_17_sim < 0.21)
 
 # Delete threat columns
-jaccard_0.2 <- jaccard_0.2 %>%
+jaccard_0.21 <- jaccard_0.21 %>%
   select(-c(15,16,17,18,19,20,21,22,23,24,25, 26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,
             41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,
             67,68,69))
@@ -418,7 +418,7 @@ res.desc2[[2]]
 ## Change some columns to factors
 library(corrplot)
 
-model_subset <- overlap_caribou_threats_single %>% select(3,6,12,70,72,73,75,76,77,78,79)
+model_subset <- overlap_caribou_threats_single %>% select(3,6,12,70,72,73,75,76,77,78)
 
 numeric_vars <- model_subset %>%
   select(Percent_caribou, Total_area_km, sara_status, taxonomic_group, row_17, row_17_sim, matching_ones, row_17_L,row_17_sim_L) %>%
@@ -437,21 +437,19 @@ print(correlation_matrix)
 levels(overlap_caribou_threats_single$taxonomic_group)
 
 ## Run some glms looking at descriptors of threat overlap with caribou
-# delete row 17
+# Delete row 17 (caribou)
 overlap_caribou_threats_single <- overlap_caribou_threats_single %>%
   filter(row_number() != 17)
 
-histogram(overlap_caribou_threats_single$row_17_sim)
+# Make reference level for the variable taxonomic group
 overlap_caribou_threats_single$taxonomic_group <- factor(overlap_caribou_threats_single$taxonomic_group, 
-                                        levels = c("Molluscs", "Arthropods", "Birds", "Lichens", 
+                                        levels = c("Molluscs", "Arthropods", "Birds", "Lichens", "Amphibians",
                                         "Mammals_(terrestrial)", "Mosses", "Reptiles", "Vascular_Plants"))
 overlap_caribou_threats_single$taxonomic_group <- relevel(overlap_caribou_threats_single$taxonomic_group, ref = "Mosses")
 
 library(stats)
 library(gtools)
 library(MuMIn)
-
-
 
 n1 <- lm(row_17_sim~ scale(Percent_caribou), data=overlap_caribou_threats_single)
 n2 <- lm(row_17_sim~ scale(Total_area_km), data=overlap_caribou_threats_single)
@@ -531,11 +529,82 @@ abline(h = 0, col = "red")
 qqnorm(residuals(b5))
 qqline(residuals(b5), col = "blue")
 
+## Plot model averaged coefficient estimates of best fitting model
+
+## Make plot of model averaged proficients estimates (all estimates and confidence intervals were computed first in excel)
+## Currently b5
+# Extract coefficients and standard errors from the model
+model_summary <- summary(b5)  # Replace 'glm_model' with your model name
+coefficients <- as.data.frame(model_summary$coefficients)
+
+# Create a new data frame for plotting
+comp2 <- data.frame(
+  Variable = rownames(coefficients),
+  Estimate = coefficients[, "Estimate"],
+  Std_Error = coefficients[, "Std. Error"],
+  Lower = coefficients[, "Estimate"] - 1.96 * coefficients[, "Std. Error"],  # 95% CI lower bound
+  Upper = coefficients[, "Estimate"] + 1.96 * coefficients[, "Std. Error"]   # 95% CI upper bound
+)
+
+library(ggplot2)
+
+# Rename categories
+comp2 <- comp2 %>%
+  mutate(Variable = recode(Variable, 
+                         "scale(Percent_caribou)" = "Percentage range overlap with caribou",
+                         "scale(Total_area_km)" = "Total range area",
+                         "sara_statusSpecial Concern" = "Special concern",
+                         "sara_statusThreatened" = "Threatened",
+                         "taxonomic_groupArthropods" = "Arthropods",
+                         "taxonomic_groupBirds" = "Birds",
+                         "taxonomic_groupLichens" = "Lichens",
+                         "taxonomic_groupAmphibians" = "Amphibians",
+                         "taxonomic_groupMammals_(terrestrial)" = "Mammals (terrestrial)",
+                         "taxonomic_groupReptiles" = "Reptiles",
+                         "taxonomic_groupVascular_Plants" = "Vascular plants",
+                         "taxonomic_groupMolluscs" = "Molluscs",
+                          "(Intercept)"="Intercept"))
+
+
+# Specify the desired order of categories
+desired_order5 <- c("Total range area",
+                    "Percentage range overlap with caribou",
+                    "Threatened",
+                    "Special concern",
+                    "Mammals (terrestrial)",
+                    "Amphibians",
+                    "Reptiles",
+                    "Molluscs",
+                    "Birds",
+                    "Vascular plants",
+                    "Lichens",
+                    "Arthropods",
+                    "Intercept")
+ 
+# Reorder the factor levels in the data frame
+comp2$Variable <- factor(comp2$Variable, levels = desired_order5)
+
+p = ggplot(comp2,aes(x=Variable,y=Estimate)) +
+  geom_hline(yintercept = 0, col = "darkgrey") +  # Horizontal line at y = 0
+  geom_point() +
+  geom_errorbar(aes(ymin=Lower,ymax=Upper)) +
+  coord_flip() +
+  labs(x= "Variable", y= "Coefficent estimate") +
+  theme(
+    axis.title.y = element_text(margin = margin(t = 0, r = 30, b = 0, l = 0)),
+    panel.background = element_rect(fill = 'white', colour = 'darkgrey'),
+    panel.grid.major = element_line(colour = 'white'),
+    text = element_text(size = 12),  # Increase overall font size
+    axis.title = element_text(size = 14),  # Axis titles
+    axis.text = element_text(size = 12))  # Axis text
+print(p)
+
 
 ## Plot SAR taxonomic group and caribou range overlap
 
 # Make a graph that shows which taxonomic groups of SAR overlap most with caribou ranges
 library(ggplot2)
+
 overlap <- read.csv("SAR_cara_overlap.csv", header=TRUE,)
 head(overlap)
 # Reshape data for grouped bar plot
@@ -544,6 +613,21 @@ overlap_long <- overlap %>%
   pivot_longer(cols = c(SAR, SAR_caribou_range, SAR_caribou_range_20),
                names_to = "Metric", 
                values_to = "Value")
+
+# Specify the desired order of categories
+desired_order4 <- c(
+  "Vascular Plants",
+  "Birds",
+  "Arthropods",
+  "Reptiles",
+  "Amphibians",
+  "Mammals",
+  "Lichens",
+  "Molluscs",
+  "Mosses"
+)
+# Reorder the factor levels in the data frame
+overlap_long$Group <- factor(overlap_long$Group, levels = desired_order4)
 
 # Create grouped bar plot
 ggplot(overlap_long, aes(x = Group, y = Value, fill = Metric)) +
@@ -555,6 +639,7 @@ ggplot(overlap_long, aes(x = Group, y = Value, fill = Metric)) +
                     labels = c("SAR", "SAR that overlap with caribou", "SAR that overlap with caribou >20%")) +
   theme_minimal() +
   theme(
+    axis.title.y = element_text(margin = margin(t = 0, r = 30, b = 0, l = 0)),
     axis.text.x = element_text(angle = 45, hjust = 1),
     panel.background = element_rect(fill = 'white', colour = 'darkgrey'),
     panel.grid.major = element_line(colour = 'white'),
@@ -633,29 +718,45 @@ Threats_both2 <- Threats_both2 %>%
                          "transport_service" = "Transport and service corridors"))
 
 # Specify the desired order of categories
-desired_order3 <- c("Invasive and problematic species","Natural system modifications","Pollution","Climate change",
-                    "Human disturbance", "Residential and commercial development","Biological resource use",
-                    "Transport and service corridors",  "Agriculture and aquaculture",
-                    "Energy production and mining", "Geological events", "Other options")  # Replace with actual categories
-
+desired_order3 <- c(
+  "Invasive and problematic species",
+  "Natural system modifications",
+  "Pollution",
+  "Climate change",
+  "Human disturbance",
+  "Residential and commercial development",
+  "Biological resource use",
+  "Transport and service corridors",
+  "Agriculture and aquaculture",
+  "Energy production and mining",
+  "Geological events",
+  "Other options"
+)
 # Reorder the factor levels in the data frame
-Threats_both2$Threat <- factor(Threats_both$Threat, levels = desired_order3)
+Threats_both2$Threat <- factor(Threats_both2$Threat, levels = desired_order3)
 
+# Define custom colors
+custom_colors <- c(
+  'Proportion_all' = 'deepskyblue4',  # Dark teal color for 'wolverine'
+  'Proportion_cara' = 'cadetblue2'  # Light blue color for 'woodland caribou'
+)
 
 # Create grouped bar plot for threats to all SAR
 ggplot(Threats_both2, aes(x = Threat, y = Proportion, fill=type, width=0.45)) +
   geom_bar(stat = "identity", position='dodge') +
   labs(x = "Threat",
-       y = "Number of species") +
+       y = "Proportion of species") +
   theme_minimal() +
+  scale_fill_manual(values = custom_colors) +
   theme(
-    axis.title.y = element_text(margin = margin(t = 0, r = 40, b = 0, l = 0)),
-    axis.text.x = element_text(angle = 60, hjust = 1, margin = margin(t = 0, r = 0, b = 20, l = 0)),
+    axis.title.y = element_text(margin = margin(t = 0, r = 50, b = 0, l = 0)),
+    axis.text.x = element_text(angle = 65, hjust = 1, margin = margin(t = 0, r = 0, b = 20, l = 0)),
     panel.background = element_rect(fill = 'white', colour = 'darkgrey'),
     panel.grid.major = element_line(colour = 'white'),
     text = element_text(size = 16),  # Increase overall font size
     axis.title = element_text(size = 18),  # Axis titles
     axis.text = element_text(size = 16),  # Axis text
+    legend.position = "none"
   )
 
 
