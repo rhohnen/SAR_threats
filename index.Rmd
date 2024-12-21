@@ -156,8 +156,6 @@ fviz_mca_ind(
 Compute similarity between boreal caribou and other SAR in their IUCN threats using the Jaccard index.
 ```{r jaccard, echo=TRUE}
 
-# Compute similarity between species and woodland caribou row using the Jaccard index
-
 library(vegan)
 dist <-vegdist(subset_data, method = "jaccard")
 # Convert dist object to a matrix
@@ -211,8 +209,8 @@ jaccard_0.21 <- jaccard_0.21 %>%
 ## Calculate the number of columns in common between caribou and other species
 
 How many columns overlap?
+Look at the number of column in common between caribou and all other species in the dataset
 ```{r common_columns, echo=TRUE}
-####look at the number of column in common between caribou and all other species in the dataset
 # First, extract the row corresponding to "caribou"
 caribou_row <- overlap_caribou_threats_single %>% 
   filter(common_name == "caribou boreal population") %>%
@@ -229,8 +227,7 @@ species_all_row <- overlap_caribou_threats_single %>%
 # Create a new dataset comparing "caribou" to all other rows (and count 1's)
 comparison <- species_all_row %>%
   rowwise() %>%
-  mutate(matching_ones = sum(caribou_row == 1 & c_across(everything()) == 1, na.rm = TRUE)) %>%
-  ungroup()
+  mutate(matching_ones = sum(caribou_row == 1 & c_across(everything()) == 1, na.rm = TRUE)) %>% ungroup()
 
 # Add common_columns column (!) to overlap_caribou_threats single
 matching_ones <- comparison$matching_ones
@@ -245,7 +242,6 @@ Compute correlations between variables that could be included in the models. Non
 ```{r correlation, echo=TRUE}
 
 library(corrplot)
-
 model_subset <- overlap_caribou_threats_single %>% select(3,6,12,70,72,73,75,76,77)
 
 numeric_vars <- model_subset %>%
@@ -267,21 +263,21 @@ Quasibinomial model was chosen as the response variable (Jaccard index) goes fro
 
 ```{r model, echo=TRUE}
 
-# Run some glms looking at descriptors of threat overlap with caribou
 library(stats)
 library(gtools)
 library(MuMIn)
 
-## Run some glms looking at descriptors of threat overlap with caribou
+## make final ajustment to data set
 # Delete row 17 (caribou)
 overlap_caribou_threats_single <- overlap_caribou_threats_single %>%
   filter(row_number() != 17)
 
-# Make reference level for the variable taxonomic group
+# Choose a reference level for the variable taxonomic group in this case- molluscs
 overlap_caribou_threats_single$taxonomic_group <- factor(overlap_caribou_threats_single$taxonomic_group, levels = c("Molluscs", "Arthropods", "Birds", "Lichens", "Amphibians","Mammals_(terrestrial)", "Mosses", "Reptiles", "Vascular_Plants"))
 
 overlap_caribou_threats_single$taxonomic_group <- relevel(overlap_caribou_threats_single$taxonomic_group, ref = "Mosses")
 
+# Run models
 b1 <- glm(round(cbind(row_17_sim, 1)*100)~ scale(Percent_caribou), data=overlap_caribou_threats_single, family=binomial)
 b2 <- glm(round(cbind(row_17_sim, 1)*100)~ scale(Total_area_km), data=overlap_caribou_threats_single,family=binomial)
 b3 <- glm(round(cbind(row_17_sim, 1)*100)~ sara_status, data=overlap_caribou_threats_single,family=binomial)
@@ -289,16 +285,22 @@ b4 <- glm(round(cbind(row_17_sim, 1)*100)~ taxonomic_group, data=overlap_caribou
 b5 <- glm(round(cbind(row_17_sim, 1)*100)~ scale(Percent_caribou) + scale(Total_area_km) + sara_status + taxonomic_group, data=overlap_caribou_threats_single,family=binomial)
 b6 <- glm(round(cbind(row_17_sim, 1)*100)~ 1, data=overlap_caribou_threats_single,family=binomial)
 
+# Look at what model fits best
 fmList3<-model.sel(b1=b1, b2=b2, b3=b3, b4=b4, b5=b5, b6=b6)
 fmList3
+
+#Get coefficient estimates
 summary(b5)
 
 ```
-
 Evidence of greater threat overlap with caribou for species with greater range sizes, more overlap in their range with caribou, and for mammals and birds.
+
+## Check fit
+
+Look at residuals vs fitted and QQ plots
 ```{r check fit, echo=TRUE}
 
-# Check fit
+# Check model fit
 null_dev <- summary(b5)$null.deviance
 resid_dev <- summary(b5)$deviance
 
@@ -331,7 +333,7 @@ qqline(residuals(b5), col = "blue")
 ```
 ## Plot model averaged coefficient estimates of best fitting model
 
-Currently b5
+Currently the best fitting model is b5, so these values are extracted.
 ```{r coef, echo=TRUE}
 
 # Extract coefficients and standard errors from the model
