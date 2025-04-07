@@ -268,252 +268,75 @@ overlap_species_threats_no2 <- overlap_species_threats_no2 %>%
 ###################################################################################
 ### Run MCA to visualize differences based on taxonomic group
 ### try MCA
-library("FactoMineR")
-library("factoextra")
 
-###Create subset for MCA. This subset has the sub groups but not the group categories
-subset_data_MCA<- overlap_species_threats_no2 %>% select(c(17,18,19,21,22,23,24,26,27,28,30,31,32,33,35,36,37,38,40,41,42,44,45,46,
+# Load libraries
+library(FactoMineR)
+library(factoextra)
+
+# Load dataset
+subset_data_MCA<- overlap_species_threats_no2 %>% select(c(12,17,18,19,21,22,23,24,26,27,28,30,31,32,33,35,36,37,38,40,41,42,44,45,46,
                                                            48,49,50,51,52,53,55,56,57,58,59,60,62,63,64,66,67,68,69,70))
-# Remove rows and columns with no variance
-subset_data_MCA <- subset_data_MCA[rowSums(is.na(subset_data_MCA)) != ncol(subset_data_MCA), ]
-subset_data_MCA <- subset_data_MCA[, colSums(is.na(subset_data_MCA)) != nrow(subset_data_MCA)]
+# Select taxonomic group and trait columns
+taxonomic_col <- "taxonomic_group"  # Adjust based on actual column name
+trait_cols <- setdiff(names(subset_data_MCA), taxonomic_col)  # Assuming all other columns are traits
 
-# Remove columns with very few non-zero values
-threshold <- 3
-subset_data_MCA <- subset_data_MCA %>%
-  select(where(~ sum(.) >= threshold))
+# Convert taxonomic group to a factor
+subset_data_MCA[[taxonomic_col]] <- as.factor(subset_data_MCA[[taxonomic_col]])
 
-# Convert all columns to factors
-subset_data_MCA <- data.frame(lapply(subset_data_MCA, as.factor))
+# Convert trait columns to factors (since MCA requires categorical data)
+subset_data_MCA[trait_cols] <- lapply(subset_data_MCA[trait_cols], as.factor)
 
-#run MCA
-MCA <-MCA(subset_data_MCA, ncp = 5, graph = TRUE)
+# Run MCA (excluding the taxonomic group initially)
+mca_result <- MCA(subset_data_MCA[, trait_cols], graph = FALSE)
 
-eig.val <- get_eigenvalue(MCA)
+# Get the contribution scores for variables
+trait_contrib <- data.frame(mca_result$var$contrib)
 
-# plot % variance explained
-fviz_screeplot(MCA, addlabels = TRUE, ylim = c(0, 45))
+# Select the top 10 most influential traits (modify as needed)
+top_traits <- rownames(trait_contrib)[order(-trait_contrib$Dim.1)[1:10]]
 
-fviz_mca_biplot(MCA, 
-                repel = TRUE, # Avoid text overlapping (slow if many point)
-                ggtheme = theme_minimal())
-
-var <- get_mca_var(MCA)
-var
-
-# Coordinates
-head(var$coord)
-# Cos2: quality on the factor map
-head(var$cos2)
-# Contributions to the principal components
-head(var$contrib)
-
-fviz_mca_var(MCA, choice = "mca.cor", 
-             repel = TRUE, # Avoid text overlapping (slow)
-             ggtheme = theme_minimal())
-
-head(round(var$coord, 2), 4)
+# Plot MCA biplot with only the most influential traits labeled
+fviz_mca_biplot(mca_result, 
+                label = "var",  # Show variable names
+                select.var = list(name = top_traits),  # Show only top traits
+                habillage = subset_data_MCA[[taxonomic_col]],  # Color by taxonomic group
+                addEllipses = TRUE, 
+                repel = TRUE)
+### might be struggling with lots of zeros and sparse data fro some columns
 
 
-fviz_mca_var(MCA, col.var="black", shape.var = 15,
-             repel = TRUE)
+## Try with jsut overarching categories
+# Load dataset
+subset_data_MCA2<- overlap_species_threats_no2 %>% select(c(12,16,20,25,29,34,39,43,47,54,61,65))
 
-# Change the transparency by cos2 values
-fviz_mca_var(MCA, alpha.var="cos2",
-             repel = TRUE,
-             ggtheme = theme_minimal())
-# Create a bar plot of variable cos2 using the function fviz_cos2()[in factoextra]:
-fviz_cos2(MCA, choice = "var", axes = 1:2)
+# Select taxonomic group and trait columns
+taxonomic_col3 <- "taxonomic_group"  # Adjust based on actual column name
+trait_cols3 <- setdiff(names(subset_data_MCA2), taxonomic_col3)  # Assuming all other columns are traits
 
+# Convert taxonomic group to a factor
+subset_data_MCA2[[taxonomic_col3]] <- as.factor(subset_data_MCA2[[taxonomic_col3]])
 
-head(round(var$contrib,2), 4)
-# Contributions of rows to dimension 1
-fviz_contrib(MCA, choice = "var", axes = 1, top = 15)
-# Contributions of rows to dimension 2
-fviz_contrib(MCA, choice = "var", axes = 2, top = 15)
+# Convert trait columns to factors (since MCA requires categorical data)
+subset_data_MCA2[trait_cols3] <- lapply(subset_data_MCA2[trait_cols3], as.factor)
 
-# Total contribution to dimension 1 and 2
-fviz_contrib(MCA, choice = "var", axes = 1:2, top = 15)
+# Run MCA (excluding the taxonomic group initially)
+mca_result <- MCA(subset_data_MCA2[, trait_cols3], graph = FALSE)
 
-fviz_mca_var(MCA, col.var = "contrib",
-             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"), 
-             repel = TRUE, # avoid text overlapping (slow)
-             ggtheme = theme_minimal()
-)
+# Get the contribution scores for variables
+trait_contrib <- data.frame(mca_result$var$contrib)
 
-### graph individuals (species in this case)
+# Select the top 10 most influential traits (modify as needed)
+top_traits <- rownames(trait_contrib)[order(-trait_contrib$Dim.1)[1:10]]
 
-ind <- get_mca_ind(MCA)
-ind
+# Plot MCA biplot with only the most influential traits labeled
+fviz_mca_biplot(mca_result, 
+                label = "var",  # Show variable names
+                select.var = list(name = top_traits),  # Show only top traits
+                habillage = subset_data_MCA2[[taxonomic_col3]],  # Color by taxonomic group
+                addEllipses = TRUE, 
+                repel = TRUE)
+fviz_screeplot(mca_result, addlabels = TRUE)
 
-# Coordinates of column points
-head(ind$coord)
-# Quality of representation
-head(ind$cos2)
-# Contributions
-head(ind$contrib)
-
-### visualize only individuals (species here)
-fviz_mca_ind(MCA, col.ind = "cos2", 
-             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
-             repel = TRUE, # Avoid text overlapping (slow if many points)
-             ggtheme = theme_minimal())
-
-### group by external variable 
-# habillage = external grouping variable here taxonimic group
-taxons <- as.factor(overlap_species_threats_no2$taxonomic_group)
-fviz_mca_ind(MCA, habillage = taxons, addEllipses = FALSE)
-
-# Group by overlap with caribou
-overlap <- as.numeric(overlap_species_threats_no2$Percent_SAR_caribou)
-fviz_mca_ind(
-  MCA, 
-  geom = "point", 
-  col.ind = overlap,  # Use numeric vector for coloring
-  gradient.cols = c("blue", "yellow", "red"),  # Continuous gradient
-  addEllipses = FALSE
-) +
-  labs(color = "Overlap") # Adjust legend label
-
-# Group by total range of caribou
-range <- as.numeric(overlap_species_threats_no2$Total_area_km)
-fviz_mca_ind(
-  MCA, 
-  geom = "point", 
-  col.ind = range, # Use Area for coloring
-  gradient.cols = c("blue", "yellow", "red"), # Define a color gradient
-  addEllipses = FALSE
-) +
-  labs(color = "Area") # Label for the color legend
-
-### The function dimdesc() [in FactoMineR] can be used to identify the most correlated variables with a given dimension:
-
-res.desc <- dimdesc(MCA, axes = c(1,2))
-# Description of dimension 1
-res.desc[[1]]
-# Description of dimension 2
-res.desc[[2]]
-
-### Run another MCA but just using the group categories, not the subcategories
-
-### Create subset for MCA. This subset has the sub groups but not the group categories
-subset_data_MCA2<- overlap_species_threats_no2 %>% select(16,20,25,29,34,39,43,47,54,61,65)
-# Remove rows and columns with no variance
-subset_data_MCA2 <- subset_data_MCA2[rowSums(is.na(subset_data_MCA2)) != ncol(subset_data_MCA2), ]
-subset_data_MCA2 <- subset_data_MCA2[, colSums(is.na(subset_data_MCA2)) != nrow(subset_data_MCA2)]
-
-# Remove columns with very few non-zero values
-threshold <- 3
-subset_data_MCA2 <- subset_data_MCA2 %>%
-  select(where(~ sum(.) >= threshold))
-
-# Convert all columns to factors
-subset_data_MCA2 <- data.frame(lapply(subset_data_MCA2, as.factor))
-
-#run MCA
-MCA2 <-MCA(subset_data_MCA2, ncp = 5, graph = TRUE)
-
-eig.val <- get_eigenvalue(MCA2)
-# head(eig.val)
-
-# plot % variance explained
-fviz_screeplot(MCA2, addlabels = TRUE, ylim = c(0, 45))
-
-fviz_mca_biplot(MCA2, 
-                repel = TRUE, # Avoid text overlapping (slow if many point)
-                ggtheme = theme_minimal())
-
-var2 <- get_mca_var(MCA2)
-var2
-
-# Coordinates
-head(var2$coord)
-# Cos2: quality on the factore map
-head(var2$cos2)
-# Contributions to the principal components
-head(var2$contrib)
-
-fviz_mca_var(MCA2, choice = "mca.cor", 
-             repel = TRUE, # Avoid text overlapping (slow)
-             ggtheme = theme_minimal())
-
-head(round(var2$coord, 2), 4)
-
-
-fviz_mca_var(MCA2, col.var="black", shape.var = 15,
-             repel = TRUE)
-
-# Change the transparency by cos2 values
-fviz_mca_var(MCA2, alpha.var="cos2",
-             repel = TRUE,
-             ggtheme = theme_minimal())
-# Create a bar plot of variable cos2 using the function fviz_cos2()[in factoextra]:
-fviz_cos2(MCA2, choice = "var", axes = 1:2)
-
-
-head(round(var2$contrib,2), 4)
-# Contributions of rows to dimension 1
-fviz_contrib(MCA2, choice = "var", axes = 1, top = 15)
-# Contributions of rows to dimension 2
-fviz_contrib(MCA2, choice = "var", axes = 2, top = 15)
-
-# Total contribution to dimension 1 and 2
-fviz_contrib(MCA2, choice = "var", axes = 1:2, top = 15)
-
-fviz_mca_var(MCA2, col.var = "contrib",
-             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"), 
-             repel = TRUE, # avoid text overlapping (slow)
-             ggtheme = theme_minimal()
-)
-### graph individuals (species in this case)
-
-ind2 <- get_mca_ind(MCA2)
-ind2
-
-# Coordinates of column points
-head(ind2$coord)
-# Quality of representation
-head(ind2$cos2)
-# Contributions
-head(ind2$contrib)
-
-### visualize only individuals (species here)
-fviz_mca_ind(MCA2, col.ind = "cos2", 
-             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
-             repel = TRUE, # Avoid text overlapping (slow if many points)
-             ggtheme = theme_minimal())
-
-### group by external variable 
-# habillage = external grouping variable here taxonomic group
-overlap_species_threats_no2$taxonomic_group <- as.factor(overlap_species_threats_no2$taxonomic_group)
-fviz_mca_ind(MCA2, habillage = overlap_species_threats_no2$taxonomic_group, 
-             addEllipses = FALSE)
-
-# external grouping variable here intersect with caribou range
-fviz_mca_ind(
-  MCA2, 
-  geom = "point", 
-  col.ind = overlap_species_threats_no2$Intersect_caribou_km, # Use Area for coloring
-  addEllipses = FALSE
-) +
-  labs(color = "Area") # Label for the color legend
-
-# external grouping variable here intersect with area
-fviz_mca_ind(
-  MCA2, 
-  geom = "point", 
-  col.ind = overlap_species_threats_no2$Total_area_km, # Use Area for coloring
-  addEllipses = FALSE
-) +
-  labs(color = "Area") # Label for the color legend
-
-### The function dimdesc() [in FactoMineR] can be used to identify the most correlated variables with a given dimension:
-
-res.desc2 <- dimdesc(MCA2, axes = c(1,2))
-# Description of dimension 1
-res.desc2[[1]]
-# Description of dimension 2
-res.desc2[[2]]
 
 ###########################################################################
 ### Check correlations prior to modelling and change some columns to factors
@@ -960,4 +783,183 @@ ggplot(summary, aes(x = bin, y = count, width=0.45)) +
     axis.text = element_text(size = 18),  # Axis text
     legend.position = "none"
   )
+
+###### Make a heatmap figure for overarching categories
+# Load your dataset
+
+heat <- overlap_species_threats_no2  # Replace with actual dataset
+###Create subset with just overarching categories
+heat_subset_data_over <- heat %>% select(12,16,20,25,29,34,39,43,47,54,61,65)
+# Assuming the dataset has 'Taxonomic_Group' and binary trait columns
+taxonomic_col <- "taxonomic_group"  # Adjust as needed
+trait_cols <- setdiff(names(heat_subset_data_over), taxonomic_col)
+
+# Convert to long format and calculate proportions
+df_long <- heat_subset_data_over %>%
+  pivot_longer(cols = all_of(trait_cols), names_to = "Trait", values_to = "Presence") %>%
+  group_by(taxonomic_group, Trait) %>%
+  summarise(Proportion = mean(Presence), .groups = "drop") 
+
+df_long <- df_long %>%
+  mutate(Trait = dplyr::recode(Trait, 
+                                "X2_agri_aqua" = "Agriculture and aquaculture",
+                                "X5_bio_resource_use" = "Biological resource use",
+                                "X11_climate_change" = "Climate change",
+                                "X3_energy" = "Energy production and mining",
+                                "X10_geological_event" = "Geological events",
+                                "X6_human_disturbance" = "Human disturbance",
+                                "X8_invasive_species" = "Invasive and problematic species",
+                                "X7_natural_sys_change" = "Natural system modifications",
+                                "X9_pollution" = "Pollution",
+                                "X1_res_comm_development" = "Residential and commercial development",
+                                "X4_transport_service" = "Transport and service corridors"))
+
+df_long <- df_long %>%
+  mutate(taxonomic_group = as.character(taxonomic_group)) %>% 
+  mutate(taxonomic_group = dplyr::recode(taxonomic_group, "Vascular_Plants" = "Vascular plants",))%>% 
+  mutate(taxonomic_group = dplyr::recode(taxonomic_group, "Mammals_(terrestrial)" = "Terrestrial mammals"))%>% 
+  mutate(taxonomic_group = dplyr::recode(taxonomic_group, "Molluscs" = "Terrestrial molluscs"))
+
+library(forcats)
+df_long <- df_long %>%
+  mutate(taxonomic_group = fct_relevel(taxonomic_group, "Terrestrial molluscs", "Amphibians", "Terrestrial mammals", "Reptiles","Birds","Vascular plants", "Lichens","Mosses","Arthropods"))
+
+ggplot(df_long, aes(x = Trait, y = taxonomic_group, fill = Proportion)) +
+  geom_tile() +
+  scale_fill_gradient(low = "white", high = "blue", name = "Proportion") +
+  theme_minimal() +
+  labs(x = "Trait", y = "Taxonomic Group") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+###### Make a heatmap figure for sub categories
+# Load your dataset
+
+heat2 <- overlap_species_threats_no2  # Replace with actual dataset
+###Create subset with just overarching categories
+heat_subset_data_over2 <- heat2 %>% select(12,17,18,19,21,22,23,24,26,27,28,30,31,32,33,35,36,37,38,40,41,42,44,45,46,
+                                         48,49,50,51,52,53,55,56,57,58,59,60,62,63,64,66,67,68,69,70)
+# Assuming the dataset has 'Taxonomic_Group' and binary trait columns
+taxonomic_col2 <- "taxonomic_group"  # Adjust as needed
+trait_cols2 <- setdiff(names(heat_subset_data_over2), taxonomic_col2)
+
+# Convert to long format and calculate proportions
+df_long2 <- heat_subset_data_over2 %>%
+  pivot_longer(cols = all_of(trait_cols2), names_to = "Trait", values_to = "Presence") %>%
+  group_by(taxonomic_group, Trait) %>%
+  summarise(Proportion = mean(Presence), .groups = "drop") 
+
+df_long2 <- df_long2 %>%
+  mutate(Trait = dplyr::recode(Trait, 
+                               "X10_1_volcano" = "10.1 Volcanic events",
+                               "X10_2_earth_quake" = "10.2 Earthquake/tsunami events",
+                               "X10_3_avalanche" = "10.3 Avalances/landside events",
+                               "X11_1_hab_shift" = "11.1 Climate change caused habitat shifts",
+                               "X11_2_drought" = "11.2 Climate change caused droughts",
+                               "X11_3_temp_extreme" = "11.3 Climate change caused temperature extremes",
+                               "X11_4_storm_flood" = "11.4 Climate change caused storms and flooding",
+                               "X11_5_other_impacts" = "11.5 Other impacts of climate change",
+                               "X1_1_house_urban" = "1.1 Housing and urban development",
+                               "X1_2_comm_industrial" = "1.2 Commercial and industrial development",
+                               "X1_3_tourisim_rec" = "1.2 Tourisim and recreational development",
+                               "X2_1_crops" = "2.1 Annual and perennial crops",
+                               "X2_2_wood_planta" = "2.2 Wood and pulp plantations",
+                               "X2_3_livestock_farm" = "2.3 Livestock farming",
+                               "X2_4_aqua" = "2.4 Marine and freshwater aquaculture",
+                               "X3_1_oil_gas" = "3.1 Oil and gas drilling",
+                               "X3_2_mining" = "3.2 Mining and quarrying",
+                               "X3_3_renewable" = "3.3 Renewable energy development",
+                               "X4_1_roads" = "4.1 Roads",
+                               "X4_2_utility_service" = "4.2 Utility and service corridors",
+                               "X4_3_shipping_lane" = "4.3 Shipping lanes",
+                               "X4_4_flight_path" = "4.4 Flight paths",
+                               "X5_1_hunting" = "5.1 Hunting and collection of terrestial animals",
+                               "X5_2_gathering" = "5.2 Hunting and collection of terrestrial plants",
+                               "X5_3_logging" = "5.3 Logging and wood harvesting",
+                               "X5_4_fishing" = "5.4 Fishing and harvesting of aquatic resources",
+                               "X6_1_recreation" = "6.1 Recreational activities",
+                               "X6_2_war" = "6.2 War and civil unrest",
+                               "X6_3_work_activity" = "6.3 Work activities",
+                               "X7_1_fire_fire_sup" = "7.1 Fire and fire suppression",
+                                "X7_2_dams_water" = "7.2 Dam and water management/use",
+                                "X7_3_ecosysmod" = "7.3 Other ecosystem modifications",
+                                "X8_1_invasive_nonative" = "8.1 Invasive species",
+                                "X8_2_problematic_native" = "8.2 Problematic species",
+                                "X8_3_introduced_genetic" = "8.3 Introduced genetic material",
+                                "X8_4_problematic_species" = "8.4 Problematic species of unknown origin",
+                                "X8_5_viral_disease" = "8.5 Viral induced diseases",
+                               "X8_6_disease_unknown" = "8.6 Diseases of unknown cause",
+                               "X9_1_sewage_waste_water" = "9.1 Domestic and urban waste water",
+                               "X9_2_industrial_waste" = "9.2 Industrial and military effluents",
+                               "X9_3_agricultural_waste" = "9.3 Agricultural and forestry effluents",
+                               "X9_4_garbage_soil_waste" = "9.4 Garbage and solid waste",
+                               "X9_5_air_boure_pollute" = "9.5 Air-bourne pollutants",
+                               "X9_6_excess_energy" = "9.6 Excess energy"))
+
+
+df_long2 <- df_long2 %>%
+  mutate(taxonomic_group = as.character(taxonomic_group)) %>% 
+  mutate(taxonomic_group = dplyr::recode(taxonomic_group, "Vascular_Plants" = "Vascular plants",))%>% 
+  mutate(taxonomic_group = dplyr::recode(taxonomic_group, "Mammals_(terrestrial)" = "Terrestrial mammals"))%>% 
+  mutate(taxonomic_group = dplyr::recode(taxonomic_group, "Molluscs" = "Terrestrial molluscs"))
+
+df_long2 <- df_long2 %>%
+  mutate(taxonomic_group = fct_relevel(taxonomic_group, "Terrestrial molluscs", "Amphibians", "Terrestrial mammals", "Reptiles","Birds","Vascular plants", "Lichens","Mosses","Arthropods"))
+
+# Specify the desired order of categories
+desired_order6 <- c(
+  "1.1 Housing and urban development",
+  "1.2 Commercial and industrial development",
+  "1.2 Tourisim and recreational development",
+  "2.1 Annual and perennial crops",
+  "2.2 Wood and pulp plantations",
+  "2.3 Livestock farming",
+  "2.4 Marine and freshwater aquaculture",
+  "3.1 Oil and gas drilling",
+  "3.2 Mining and quarrying",
+  "3.3 Renewable energy development",
+  "4.1 Roads",
+  "4.2 Utility and service corridors",
+  "4.3 Shipping lanes",
+  "4.4 Flight paths",
+  "5.1 Hunting and collection of terrestial animals",
+  "5.2 Hunting and collection of terrestrial plants",
+  "5.3 Logging and wood harvesting",
+  "5.4 Fishing and harvesting of aquatic resources",
+  "6.1 Recreational activities",
+  "6.2 War and civil unrest",
+  "6.3 Work activities",
+  "7.1 Fire and fire suppression",
+  "7.2 Dam and water management/use",
+  "7.3 Other ecosystem modifications",
+  "8.1 Invasive species",
+  "8.2 Problematic species",
+  "8.3 Introduced genetic material",
+  "8.4 Problematic species of unknown origin",
+  "8.5 Viral induced diseases",
+  "8.6 Diseases of unknown cause",
+  "9.1 Domestic and urban waste water",
+  "9.2 Industrial and military effluents",
+  "9.3 Agricultural and forestry effluents",
+  "9.4 Garbage and solid waste",
+  "9.5 Air-bourne pollutants",
+  "9.6 Excess energy",
+  "10.1 Volcanic events",
+  "10.2 Earthquake/tsunami events",
+  "10.3 Avalances/landside events",
+  "11.1 Climate change caused habitat shifts",
+  "11.2 Climate change caused droughts",
+  "11.3 Climate change caused temperature extremes",
+  "11.4 Climate change caused storms and flooding",
+  "11.5 Other impacts of climate change")
+
+# Reorder the factor levels in the data frame
+df_long2$Trait <- factor(df_long2$Trait, levels = desired_order6)
+
+ggplot(df_long2, aes(x = Trait, y = taxonomic_group, fill = Proportion)) +
+  geom_tile() +
+  scale_fill_gradient(low = "white", high = "blue", name = "Proportion") +
+  theme_minimal() +
+  labs(x = "Trait", y = "Taxonomic Group") + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
