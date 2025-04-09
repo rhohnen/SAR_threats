@@ -1,12 +1,10 @@
 library(dplyr)
 library(tidyr)
 
-### Read in dataset
+# Read in dataset
 threats <-read.csv('SAR_overlap_threats_NE_species_input_final_noNA.csv')
-head(threats)
 
-### Clean dataset
-
+# Clean dataset
 # Replace spaces with underscores in the taxonomic_group column
 all_species_threats <- threats %>%
   mutate(taxonomic_group = gsub(" ", "_", taxonomic_group))
@@ -25,14 +23,13 @@ all_species_threats <- all_species_threats %>%
 all_species_threats <- all_species_threats %>%
   filter(!(common_name %in% c("caribou_atlantic-gaspesie_population", "caribou_dolphin_and_union_population", "peary_caribou")))
 
-#### To make a consistent data set replace any 2 values with a 1
+# To make a consistent data set replace any 2 values with a 1
 all_species_threats_no2 <- all_species_threats %>%
   mutate(across(everything(), ~ ifelse(. == 2, 1, .)))
 
 # Delete multiples of the same species that weren't eliminated with the process above
 # Keep the row with the greatest number of threats listed per species
 # To do this first count the number of traits (sum of 1s across trait columns)
-
 all_species_threats_no2$X1_res_comm_development <- as.numeric(all_species_threats_no2$X1_res_comm_development)
 
 # Convert non-numeric values in trait columns to NA
@@ -45,6 +42,10 @@ all_species_threats_no2 <- all_species_threats_no2 %>%
   slice_max(trait_count, n = 1) %>%  # Keeps row with highest trait count
   ungroup()
 
+# delete row 88 as this is the exception to this
+all_species_threats_no2 <- all_species_threats_no2 %>%
+  filter(!(rowID %in% c("2094")))
+
 # Delete all rows if not threats are recorded
 all_species_threats_no2 <- all_species_threats_no2 %>%
   filter(trait_count != "0") 
@@ -54,7 +55,6 @@ all_species_threats_no2 <- all_species_threats_no2 %>%
 
 ##################################################################################
 ## Create row for combined mountain and boreal caribou threats
-
 caribous <- all_species_threats_no2 %>% filter(rowID %in% c(264,2136,2137))
 
 # Extract columns 1-14 from row 264 (keep as a single row)
@@ -79,7 +79,6 @@ caribou_row2$Percent_SAR_caribou <- "100"
 caribou_row2$Percent_caribou_SAR <- "100"
 caribou_row2$Total_area_km <- "3459299.35"
 caribou_row2$Intersect_caribou_km <- "3459299.35"
-
 caribou_row2$year_published <- as.integer(caribou_row2$year_published)
 
 # Bind to existing data set
@@ -89,7 +88,6 @@ all_species_threats_no2 <- bind_rows(all_species_threats_no2, caribou_row2)
 all_species_threats_no2 <- all_species_threats_no2 %>%
   filter(!(common_name %in% c("woodland_caribou_northern_mountain_population", "woodland_caribou_southern_mountain_population", "caribou_boreal_population")))
 
-           
 #############################################################
 ## Now make subsets!
 # Make a data set with just species that overlap in range with caribou so filter rows where percent_caribou > 0
@@ -120,7 +118,7 @@ all_species_threats_no2$Percent_caribou_SAR[all_species_threats_no2$Percent_cari
 non_na_count <- sum(!is.na(all_species_threats_no2$Total_area_km))
 print(non_na_count)
 table(all_species_threats_no2$Spatial.data.source)
-sum(df[1, ] > 20, na.rm = TRUE)
+
 
 ## Find out how many row have species range overlap with caribou values of >20
 all_species_threats_no2$Percent_SAR_caribou <- as.integer(all_species_threats_no2$Percent_SAR_caribou)
@@ -128,55 +126,45 @@ ex <- all_species_threats_no2 %>%
   filter(.[[73]] > 0) %>%
   nrow
 ex
+
 ###################################################################################
-### Try to compute similarity between species and woodland caribou row using the Jaccard index
+# Try to compute similarity between species and woodland caribou row using the Jaccard index
 library(vegan)
 
-###### First compute for all data columns (overarching and subcategories)
+# First compute for all data columns (overarching and subcategories)
 dist <-vegdist(subset_data_large, method = "jaccard")
-# Convert dist object to a matrix
-dist_matrix <- as.matrix(dist)
 
-# Convert matrix to a data frame
-dist_df <- as.data.frame(dist_matrix)
+dist_matrix <- as.matrix(dist) # Convert dist object to a matrix
+dist_df <- as.data.frame(dist_matrix) # Convert matrix to a data frame
+row_97 <- dist_df[97, ] # Extract row 42 from dist_df
+similarity_matrix <- 1 - dist_matrix # Make similarity matrix
+sim_df <- as.data.frame(similarity_matrix) # Convert matrix to a data frame
+row_97_sim <- sim_df[97, ] # Extract row 97 from similarity matrix
 
-# Extract row 42 from dist_df
-row_98 <- dist_df[98, ]
-
-# Make similarity matrix
-similarity_matrix <- 1 - dist_matrix
-
-# Convert matrix to a data frame
-sim_df <- as.data.frame(similarity_matrix)
-
-# Extract row 42 from similarity matrix
-row_98_sim <- sim_df[98, ]
-
-# Add row_42 as a column to overlap_caribou_threats_single
+# Add row_97 as a column to overlap_caribou_threats_single
 overlap_species_threats_no2 <- overlap_species_threats_no2 %>%
-  mutate(row_98 = as.numeric(row_98))
-
+  mutate(row_97 = as.numeric(row_97)) 
 # Add row_42_sim as a column to overlap_caribou_threats_single
 overlap_species_threats_no2 <- overlap_species_threats_no2 %>%
-  mutate(row_98_sim = as.numeric(row_98_sim))
+  mutate(row_97_sim = as.numeric(row_97_sim))
 
-###### Next Create jaccard index for subset of just sub categories
+## Next Create jaccard index for subset of just sub categories
 dist_sub_cat <-vegdist(subset_data, method = "jaccard")
-# Convert dist object to a matrix
-dist_matrix_cat <- as.matrix(dist_sub_cat)
+
+dist_matrix_cat <- as.matrix(dist_sub_cat) # Convert dist object to a matrix
 dist_df_cat <- as.data.frame(dist_matrix_cat)
-row_98_cat <- dist_df_cat[98, ]
+row_97_cat <- dist_df_cat[97, ]
 
 # Make similarity matrix
 similarity_matrix_cat <- 1 - dist_matrix_cat
 sim_df_cat <- as.data.frame(similarity_matrix_cat)
-row_98_sim_cat <- sim_df_cat[98, ]
+row_97_sim_cat <- sim_df_cat[97, ]
 
 # Add rows as a column to overlap_caribou_threats_single
 overlap_species_threats_no2 <- overlap_species_threats_no2 %>%
-  mutate(row_98_cat = as.numeric(row_98_cat))
+  mutate(row_97_cat = as.numeric(row_97_cat))
 overlap_species_threats_no2 <- overlap_species_threats_no2 %>%
-  mutate(row_98_sim_cat = as.numeric(row_98_sim_cat))
+  mutate(row_97_sim_cat = as.numeric(row_97_sim_cat))
 
 ###### Then next create jaccard index for subset of just overarching categories
 dist_over_cat <-vegdist(subset_data_over, method = "jaccard")
@@ -184,25 +172,25 @@ dist_over_cat <-vegdist(subset_data_over, method = "jaccard")
 # Convert dist object to a matrix
 dist_matrix_over <- as.matrix(dist_over_cat)
 dist_df_over <- as.data.frame(dist_matrix_over)
-row_98_over <- dist_df_over[98, ]
+row_97_over <- dist_df_over[97, ]
 
 # Make similarity matrix
 similarity_matrix_over <- 1 - dist_matrix_over
 sim_df_over <- as.data.frame(similarity_matrix_over)
-row_98_sim_over <- sim_df_over[98, ]
+row_97_sim_over <- sim_df_over[97, ]
 
 # Add rows as a column to overlap_caribou_threats_single
 overlap_species_threats_no2 <- overlap_species_threats_no2 %>%
-  mutate(row_98_over = as.numeric(row_98_over))
+  mutate(row_97_over = as.numeric(row_97_over))
 overlap_species_threats_no2 <- overlap_species_threats_no2 %>%
-  mutate(row_98_sim_over = as.numeric(row_98_sim_over))
+  mutate(row_97_sim_over = as.numeric(row_97_sim_over))
 
 ################################################################################
-###### Find species with jaccard scores of >0.5
+## Find species with jaccard scores of >0.5
 
 # Filter dataset for rows with similarity >0.48 to find ten most similar
 jaccard_0.63 <- overlap_species_threats_no2 %>%
-  filter(row_98_sim > 0.63)
+  filter(row_97_sim > 0.63)
 
 # Delete threat columns
 jaccard_0.63 <- jaccard_0.63 %>%
@@ -212,7 +200,7 @@ jaccard_0.63 <- jaccard_0.63 %>%
 
 # find 10ish species most dissimilar
 jaccard_0.30 <- overlap_species_threats_no2 %>%
-  filter(row_98_sim < 0.28)
+  filter(row_97_sim < 0.28)
 
 # Delete threat columns
 jaccard_0.30 <- jaccard_0.30 %>%
@@ -221,9 +209,8 @@ jaccard_0.30 <- jaccard_0.30 %>%
             67,68,69))
 
 #############################################################################################
-### Try to compute similarity between species and woodland caribou row using the Jaccard index
-### by looking at the number of columns in common between caribou and 
-### species that overlap in range with caribou
+## Try to compute similarity between species and woodland caribou row by looking at the number of columns in common between 
+## caribou and species that overlap in range with caribou
 
 # First, extract the row corresponding to "caribou". Choose all columns (overarching and subcategories)
 woodland_caribou_row <- overlap_species_threats_no2 %>% 
@@ -249,8 +236,7 @@ overlap_species_threats_no2 <- overlap_species_threats_no2 %>%
 
 ###################################################################################
 
-# Make some other more interesting variables
-
+# Make some other more interesting variables (vertebrate/invertebrate, aquatic/terrestrial)
 # Create a new column based on conditions
 overlap_species_threats_no2 <- overlap_species_threats_no2 %>%
   mutate(T_group = case_when(
@@ -265,6 +251,16 @@ overlap_species_threats_no2 <- overlap_species_threats_no2 %>%
     taxonomic_group %in% c("Molluscs", "Arthropods") ~ "land" ,
     taxonomic_group %in% c("Lichens", "Vascular_Plants", "Mosses") ~ "plant" ,# If category is C or D, assign 2
   ))
+
+all_species_threats_no2 <- all_species_threats_no2 %>%
+  mutate(Percent_SAR_caribou = as.numeric(Percent_SAR_caribou),
+         Percent_caribou_SAR = as.numeric(Percent_caribou_SAR),
+         Total_area_km = as.numeric(Total_area_km))
+
+all_species_threats_no2 <- all_species_threats_no2 %>%
+  mutate(Total_area_km = as.numeric(Total_area_km))
+
+
 ###################################################################################
 ### Run MCA to visualize differences based on taxonomic group
 ### try MCA
@@ -302,10 +298,10 @@ fviz_mca_biplot(mca_result,
                 habillage = subset_data_MCA[[taxonomic_col]],  # Color by taxonomic group
                 addEllipses = TRUE, 
                 repel = TRUE)
-### might be struggling with lots of zeros and sparse data fro some columns
+### might be struggling with lots of zeros and sparse data from some columns
 
 
-## Try with jsut overarching categories
+## Try with just overarching categories
 # Load dataset
 subset_data_MCA2<- overlap_species_threats_no2 %>% select(c(12,16,20,25,29,34,39,43,47,54,61,65))
 
@@ -343,10 +339,10 @@ fviz_screeplot(mca_result, addlabels = TRUE)
 
 library(corrplot)
 
-model_subset <- overlap_species_threats_no2 %>% select(72,73,74,6,12,78,79,80,81,82,83,85)
+model_subset <- overlap_species_threats_no2 %>% select(72,73,74,6,12,78,79,80,81,82,83,84)
 
 numeric_vars <- model_subset %>%
-  select(Total_area_km, Percent_SAR_caribou, Percent_caribou_SAR, sara_status, taxonomic_group, row_98_sim, row_98_cat, row_98_sim_cat, row_98_over,row_98_sim_over, T_group) %>%
+  select(Total_area_km, Percent_SAR_caribou, Percent_caribou_SAR, sara_status, taxonomic_group, row_97_sim, row_97_cat, row_97_sim_cat, row_97_over,row_97_sim_over, T_group) %>%
   mutate(
   sara_status = as.numeric(as.factor(sara_status)),  # Convert factors to numeric
   taxonomic_group = as.numeric(as.factor(taxonomic_group)),
@@ -388,12 +384,12 @@ overlap_species_threats_no2$taxonomic_group <- factor(overlap_species_threats_no
 overlap_species_threats_no2$taxonomic_group <- relevel(overlap_species_threats_no2$taxonomic_group, ref = "Arthropods")
 
 # Try some basic linear models
-n1 <- lm(row_98_sim~ 1, data=overlap_species_threats_no2)
-n2 <- lm(row_98_sim~ scale(Percent_SAR_caribou), data=overlap_species_threats_no2)
-n3 <- lm(row_98_sim~ scale(log(Total_area_km)), data=overlap_species_threats_no2)
-n4 <- lm(row_98_sim~ sara_status, data=overlap_species_threats_no2)
-n5 <- lm(row_98_sim~ taxonomic_group, data=overlap_species_threats_no2)
-n6 <- lm(row_98_sim~ scale(Percent_SAR_caribou) + scale(log(Total_area_km)) + sara_status + taxonomic_group, data=overlap_species_threats_no2)
+n1 <- lm(row_97_sim~ 1, data=overlap_species_threats_no2)
+n2 <- lm(row_97_sim~ scale(Percent_SAR_caribou), data=overlap_species_threats_no2)
+n3 <- lm(row_97_sim~ scale(log(Total_area_km)), data=overlap_species_threats_no2)
+n4 <- lm(row_97_sim~ sara_status, data=overlap_species_threats_no2)
+n5 <- lm(row_97_sim~ taxonomic_group, data=overlap_species_threats_no2)
+n6 <- lm(row_97_sim~ scale(Percent_SAR_caribou) + scale(log(Total_area_km)) + sara_status + taxonomic_group, data=overlap_species_threats_no2)
 
 vif(n6)
 
@@ -401,24 +397,24 @@ fmList<-model.sel(n1=n1,n2=n2,n3=n3,n4=n4,n5=n5,n6=n6)
 fmList
 
 # Other options
-a1 <- lm(logit(row_98_sim)~ scale(Percent_SAR_caribou), data=overlap_species_threats_no2)
-a2 <- lm(logit(row_98_sim)~ scale(log(Total_area_km)), data=overlap_species_threats_no2)
-a3 <- lm(logit(row_98_sim)~ sara_status, data=overlap_species_threats_no2)
-a4 <- lm(logit(row_98_sim)~ taxonomic_group, data=overlap_species_threats_no2)
-a5 <- lm(logit(row_98_sim)~ scale(Percent_SAR_caribou) + scale(log(Total_area_km)) + sara_status + taxonomic_group, 
+a1 <- lm(logit(row_97_sim)~ scale(Percent_SAR_caribou), data=overlap_species_threats_no2)
+a2 <- lm(logit(row_97_sim)~ scale(log(Total_area_km)), data=overlap_species_threats_no2)
+a3 <- lm(logit(row_97_sim)~ sara_status, data=overlap_species_threats_no2)
+a4 <- lm(logit(row_97_sim)~ taxonomic_group, data=overlap_species_threats_no2)
+a5 <- lm(logit(row_97_sim)~ scale(Percent_SAR_caribou) + scale(log(Total_area_km)) + sara_status + taxonomic_group, 
          data=overlap_species_threats_no2)
-a6 <- lm(logit(row_98_sim)~ 1, data=overlap_species_threats_no2)
+a6 <- lm(logit(row_97_sim)~ 1, data=overlap_species_threats_no2)
 
 fmList2<-model.sel(a1=a1,a2=a2,a3=a3,a4=a4,a5=a5,a6=a6)
 fmList2
 summary(a4)
 
-b1 <- glm(round(cbind(row_98_sim, 1)*100)~ Percent_SAR_caribou, data=overlap_species_threats_no2, family=binomial)
-b2 <- glm(round(cbind(row_98_sim, 1)*100)~ scale(Total_area_km), data=overlap_species_threats_no2,family=binomial)
-b3 <- glm(round(cbind(row_98_sim, 1)*100)~ sara_status, data=overlap_species_threats_no2,family=binomial)
-b4 <- glm(round(cbind(row_98_sim, 1)*100)~ taxonomic_group, data=overlap_species_threats_no2,family=binomial)
-b5 <- glm(round(cbind(row_98_sim, 1)*100)~ Percent_SAR_caribou + scale(Total_area_km) + sara_status + taxonomic_group,data=overlap_species_threats_no2, family=binomial)
-b6 <- glm(round(cbind(row_98_sim, 1)*100)~ 1, data=overlap_species_threats_no2, family=binomial)
+b1 <- glm(round(cbind(row_97_sim, 1)*100)~ Percent_SAR_caribou, data=overlap_species_threats_no2, family=binomial)
+b2 <- glm(round(cbind(row_97_sim, 1)*100)~ scale(Total_area_km), data=overlap_species_threats_no2,family=binomial)
+b3 <- glm(round(cbind(row_97_sim, 1)*100)~ sara_status, data=overlap_species_threats_no2,family=binomial)
+b4 <- glm(round(cbind(row_97_sim, 1)*100)~ taxonomic_group, data=overlap_species_threats_no2,family=binomial)
+b5 <- glm(round(cbind(row_97_sim, 1)*100)~ Percent_SAR_caribou + scale(Total_area_km) + sara_status + taxonomic_group,data=overlap_species_threats_no2, family=binomial)
+b6 <- glm(round(cbind(row_97_sim, 1)*100)~ 1, data=overlap_species_threats_no2, family=binomial)
 
 fmList3<-model.sel(b1=b1, b2=b2, b3=b3, b4=b4, b5=b5, b6=b6)
 fmList3
@@ -427,15 +423,15 @@ summary(b5)
 # Try betareg
 # First transform be response variables so they're not close to 0 or 1
 overlap_species_threats_no2 <- overlap_species_threats_no2 %>%
-  mutate(Trans_row_98_sim = (overlap_species_threats_no2$row_98_sim * (nrow(overlap_species_threats_no2) - 1) + 0.5)/(nrow(overlap_species_threats_no2)))
+  mutate(Trans_row_97_sim = (overlap_species_threats_no2$row_97_sim * (nrow(overlap_species_threats_no2) - 1) + 0.5)/(nrow(overlap_species_threats_no2)))
 
-be1 <- betareg(Trans_row_98_sim ~ scale(Percent_SAR_caribou), data=overlap_species_threats_no2, link = "logit")
-be2 <- betareg(Trans_row_98_sim ~ scale(log(Total_area_km)), data=overlap_species_threats_no2, link = "logit")
-be3 <- betareg(Trans_row_98_sim ~ taxonomic_group, data=overlap_species_threats_no2, link = "logit")
-be4 <- betareg(Trans_row_98_sim ~ 1, data=overlap_species_threats_no2, link = "logit")
-be5 <- betareg(Trans_row_98_sim ~ scale(Percent_SAR_caribou) + scale(log(Total_area_km)) + taxonomic_group,data=overlap_species_threats_no2, link = "logit")
-#be5 <- betareg(Trans_row_98_sim ~ scale(Percent_SAR_caribou) + scale(log(Total_area_km)) + sara_status + taxonomic_group,data=overlap_species_threats_no2, link = "logit")
-#be3 <- betareg(Trans_row_98_sim ~ sara_status, data=overlap_species_threats_no2, link = "logit")
+be1 <- betareg(Trans_row_97_sim ~ scale(Percent_SAR_caribou), data=overlap_species_threats_no2, link = "logit")
+be2 <- betareg(Trans_row_97_sim ~ scale(log(Total_area_km)), data=overlap_species_threats_no2, link = "logit")
+be3 <- betareg(Trans_row_97_sim ~ taxonomic_group, data=overlap_species_threats_no2, link = "logit")
+be4 <- betareg(Trans_row_97_sim ~ 1, data=overlap_species_threats_no2, link = "logit")
+be5 <- betareg(Trans_row_97_sim ~ scale(Percent_SAR_caribou) + scale(log(Total_area_km)) + taxonomic_group,data=overlap_species_threats_no2, link = "logit")
+#be5 <- betareg(Trans_row_97_sim ~ scale(Percent_SAR_caribou) + scale(log(Total_area_km)) + sara_status + taxonomic_group,data=overlap_species_threats_no2, link = "logit")
+#be3 <- betareg(Trans_row_97_sim ~ sara_status, data=overlap_species_threats_no2, link = "logit")
 
 
 fmList4<-model.sel(be1=be1, be2=be2, be3=be3, be4=be4, be5=be5)
@@ -450,7 +446,7 @@ df_resid <- be5$df.residual
 df_resid
 
 # try quasibinomial
-model_qb <- glm(row_98_sim~ scale(Percent_SAR_caribou) + scale(log(Total_area_km)) + sara_status + taxonomic_group, 
+model_qb <- glm(row_97_sim~ scale(Percent_SAR_caribou) + scale(log(Total_area_km)) + sara_status + taxonomic_group, 
                 data=overlap_species_threats_no2,
                 family = quasibinomial(link = "logit"))
 model_qb
@@ -473,15 +469,14 @@ abline(h = 0, col = "red")
 qqnorm(residuals(be5))
 qqline(residuals(be5), col = "blue")
 
-hist(overlap_species_threats_no2$row_98_sim, breaks = 20, main = "Distribution of Y")
+hist(overlap_species_threats_no2$row_97_sim, breaks = 20, main = "Distribution of Y")
 
 #################################################################################
 ## Plot things!
 
 # Plot model averaged coefficient estimates of best fitting model
-# Make plot of model averaged proficients estimates (all estimates and confidence intervals were computed first in excel)
 # Extract coefficients and standard errors from the model
-# update when best model found
+
 model_summary <- summary(modelav)  
 # Convert coefficients to a data frame
 coefficients <- as.data.frame(model_summary$coefmat.full)
@@ -756,7 +751,7 @@ ggplot(threats_all_SAR, aes(x = Threat, y = Proportion, width=0.45)) +
 ###graph the number of species with values of the jaccard index
 # Summarize the number of values in each range
 summary <- overlap_species_threats_no2 %>%
-  mutate(bin = cut(row_98_sim, breaks = seq(0, 1, by = 0.1), right = FALSE)) %>%
+  mutate(bin = cut(row_97_sim, breaks = seq(0, 1, by = 0.1), right = FALSE)) %>%
   group_by(bin) %>%
   summarise(count = n(), .groups = "drop") %>%
   filter(!is.na(bin)) %>%
@@ -829,7 +824,10 @@ ggplot(df_long, aes(x = Trait, y = taxonomic_group, fill = Proportion)) +
   scale_fill_gradient(low = "white", high = "blue", name = "Proportion") +
   theme_minimal() +
   labs(x = "Trait", y = "Taxonomic Group") +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 12),
+        axis.text.y = element_text(size = 12),
+        axis.title = element_text(size = 12))# Axis titles
+                                 
 
 
 ###### Make a heatmap figure for sub categories
@@ -961,5 +959,148 @@ ggplot(df_long2, aes(x = Trait, y = taxonomic_group, fill = Proportion)) +
   scale_fill_gradient(low = "white", high = "blue", name = "Proportion") +
   theme_minimal() +
   labs(x = "Trait", y = "Taxonomic Group") + 
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 12),
+        axis.text.y = element_text(size = 12),
+        axis.title = element_text(size = 12))# Axis titles
 
+###################################################################################
+## Try classification tree
+
+# Load necessary libraries
+library(vegan)
+library(ggdendro)
+# Step 1: Set the 'Species' column as row names
+subset_data_clust <- overlap_species_threats_no2 %>% select(3,12,16,17,18,19,20,21,22,23,24,25,26,27,29,30,31,33,32,34,35,36,37,38,39,40,42,41,43,44,45,46,47,
+                                                            48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70)
+# Step 1: Perform hierarchical clustering (already done previously)
+# Prepare the data (removing 'common_name' column from the dataset)
+subset_data_clust2 <- subset_data_clust %>% select(-common_name) %>% select(-taxonomic_group)
+# Step 2: Calculate the Jaccard distance
+dist <- vegdist(subset_data_clust2, method = "jaccard")  # Exclude 'common_name' column by removing it in the previous step
+
+clustering <- hclust(dist, method = "complete")
+
+# Step 2: Cut the dendrogram into 8 clusters
+clusters <- cutree(clustering, k = 8)
+
+# Step 3: Plot the dendrogram and color the branches based on clusters
+# You can use the 'dendextend' package to easily customize dendrograms
+library(dendextend)
+
+# Convert hclust object to dendrogram object
+dendrogram <- as.dendrogram(clustering)
+
+# Color the branches based on the clusters
+dendrogram_colored <- color_branches(dendrogram, k = 8)  # 'k = 8' corresponds to the 8 clusters
+
+# Step 4: Assign species names from 'common_name' as labels
+labels(dendrogram_colored) <- subset_data_clust$common_name  # Use the 'common_name' column
+# Adjust margins: c(bottom, left, top, right)
+
+# Adjust margins to ensure space for axis labels
+par(mar = c(35, 6, 4, 2))  # Increase space for bottom and left margins
+
+plot(dendrogram_colored, 
+     main = "Hierarchical Clustering Dendrogram with 8 Clusters", 
+     cex.axis = 1.2,    # Increase size of Y-axis text (ticks)
+     cex.lab = 1.5,     # Increase size of Y-axis label and X-axis label
+     cex.main = 1.5,    # Increase size of the main title
+     las = 2)           # Rotate axis labels 90 degrees
+
+# Move X-axis label lower using mtext()
+mtext("Species", side = 1, line = 30, cex = 1.5)  # side = 1 is for X-axis
+###############################
+
+## Now try colouring by taxonomic group
+
+# Step 1: Ensure that the 'taxonomic_group' information is available
+taxonomic_groups <- subset_data_clust$taxonomic_group
+
+# Step 2: Clean the taxonomic group names by removing invalid characters (special characters)
+valid_taxonomic_groups <- gsub("[^[:alnum:]_]", "-", taxonomic_groups)
+
+# Step 3: Create a color palette for each unique taxonomic group
+unique_taxa <- unique(valid_taxonomic_groups)
+color_palette <- rainbow(length(unique_taxa))  # Use the rainbow color palette
+
+# Step 4: Create a named vector of colors, mapping each taxonomic group to a specific color
+taxa_colors <- setNames(color_palette, unique_taxa)
+
+# Step 5: Perform hierarchical clustering (already done previously)
+clustering <- hclust(dist, method = "complete")
+
+# Convert hclust object to dendrogram object
+dendrogram <- as.dendrogram(clustering)
+
+# Step 6: Assign taxonomic group colors to dendrogram labels
+dendrogram_colored <- dendrogram %>%
+  set("labels_colors", taxa_colors[valid_taxonomic_groups])  # Assign taxonomic group colors to labels
+
+# Step 7: Plot the dendrogram and keep species names
+plot(dendrogram_colored, 
+     main = "Hierarchical Clustering Dendrogram Colored by Taxonomic Group", 
+     xlab = "Species", 
+     ylab = "Distance", 
+     cex.axis = 1.2,    # Increase size of Y-axis text (ticks)
+     cex.lab = 1.5,     # Increase size of Y-axis label and X-axis label
+     cex.main = 1.5,    # Increase size of the main title
+     las = 2)         # Ensure labels are not cut off and aligned properly
+
+# Add species names to the dendrogram (ensure they are part of the dendrogram)
+# The species names are usually in the row names of the original dataset
+labels(dendrogram_colored) <- subset_data_clust$common_name
+
+# Step 8: Adjusting the X-axis labels
+# Move X-axis label lower using mtext()
+mtext("Species", side = 1, line = 30, cex = 1.5)  # side = 1 is for X-axis
+
+
+
+
+###################################
+library(vegan)
+library(ggdendro)
+# Step 1: Set the 'Species' column as row names
+subset_data_clust <- overlap_species_threats_no2 %>% select(3,12,16,17,18,19,20,21,22,23,24,25,26,27,29,30,31,33,32,34,35,36,37,38,39,40,42,41,43,44,45,46,47,
+                                                            48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70)
+# Step 1: Perform hierarchical clustering (already done previously)
+# Prepare the data (removing 'common_name' column from the dataset)
+subset_data_clust2 <- subset_data_clust %>% select(-common_name) %>% select(-taxonomic_group)
+
+# Match the labels (species names) to the order used in the dendrogram
+
+# Get the species names from the original data
+species_names <- subset_data_clust$common_name
+
+# Get the order of species in the dendrogram
+dend_labels_order <- labels(dendrogram)
+
+# Make sure the row names match the clustering
+# Assign the species names as rownames BEFORE calculating the distance
+rownames(subset_data_clust) <- subset_data_clust$common_name
+
+# Now get species names in the same order as dendrogram tips
+species_names_ordered <- species_names[match(dend_labels_order, rownames(subset_data_clust))]
+
+# Check for any NAs (in case of mismatch)
+if (any(is.na(species_names_ordered))) {
+  stop("Some species names could not be matched to the dendrogram labels.")
+}
+
+# Set the corrected species names to the dendrogram
+labels(dendrogram_colored) <- species_names_ordered
+
+# Plot again with correctly aligned species labels
+plot(dendrogram_colored,
+     main = "Hierarchical Clustering Dendrogram Colored by Taxonomic Group",
+     xlab = "Species",
+     ylab = "Distance",
+     cex.axis = 1.2,
+     cex.lab = 1.5,
+     cex.main = 1.5,
+     las = 2,
+     hang = -1)
+
+# Add axis labels
+mtext("Species", side = 1, line = 4, cex = 1.5)
+mtext("Distance", side = 2, line = 4, cex = 1.5)
