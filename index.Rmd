@@ -8,14 +8,29 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
+
+```{r librarys, include=FALSE}
+
+library(dplyr)
+library(tidyr)
+library(vegan)
+library(FactoMineR)
+library(factoextra)
+library(corrplot)
+library(forcats)
+library(car)
+library(gtools)
+library(MuMIn)
+library(betareg)
+library(vegan)
+library(dendextend)
+
+```
+
 ## Exploring threat overlap between woodland caribou and other 'species at risk' in Canada
 
 Read in and clean data
 ```{r data_processing, echo=TRUE}
-
-library(dplyr)
-library(tidyr)
-
 # Read in dataset
 threats <-read.csv('SAR_overlap_threats_NE_species_input_final_noNA.csv')
 
@@ -154,7 +169,6 @@ Compute similarity between boreal caribou and other SAR in their IUCN threats us
 ```{r jaccard, echo=TRUE}
 
 # Try to compute similarity between species and woodland caribou row using the Jaccard index
-library(vegan)
 
 # First compute for all data columns (overarching and subcategories)
 dist <-vegdist(subset_data_large, method = "jaccard")
@@ -284,10 +298,6 @@ overlap_species_threats_no2 <- overlap_species_threats_no2 %>%
 ## Run MCA to visualize differences based on taxonomic group
 
 ```{r MCA, echo=TRUE}
-# Load libraries
-library(FactoMineR)
-library(factoextra)
-
 # Load dataset
 subset_data_MCA<- overlap_species_threats_no2 %>% select(c(12,17,18,19,21,22,23,24,26,27,28,30,31,32,33,35,36,37,38,40,41,42,44,45,46,        48,49,50,51,52,53,55,56,57,58,59,60,62,63,64,66,67,68,69,70))
 
@@ -357,8 +367,6 @@ fviz_screeplot(mca_result, addlabels = TRUE)
 
 Compute correlations between variables that could be included in the models. None appear to have correlation coefficients greater than 0.4.
 ```{r correlation, echo=TRUE}
-library(corrplot)
-
 model_subset <- overlap_species_threats_no2 %>% select(72,73,74,6,12,78,79,80,81,82,83,84)
 
 numeric_vars <- model_subset %>%
@@ -383,10 +391,6 @@ Run a beta regression model that examine drivers of overlap in threats (Jaccard 
 ```{r models, echo=TRUE}
 
 # Run some glms looking at descriptors of threat overlap with caribou
-library(car)
-library(gtools)
-library(MuMIn)
-library(betareg)
 
 overlap_species_threats_no2$sara_status <- as.factor(overlap_species_threats_no2$sara_status)
 overlap_species_threats_no2$taxonomic_group <- as.factor(overlap_species_threats_no2$taxonomic_group)
@@ -522,8 +526,6 @@ ggplot(comp4,aes(x=Variable,y=Estimate)) +
 Make a graph that shows which taxonomic groups of SAR overlap most with caribou ranges
 
 ```{r Range_over, echo=TRUE}
-library(tidyr)
-
 # take all rows we have spatial data for
 summary_data_overlap_start <- all_species_threats_no2 %>%
   filter(Total_area_km >0)
@@ -798,7 +800,6 @@ df_long <- df_long %>%
   mutate(taxonomic_group = dplyr::recode(taxonomic_group, "Mammals_(terrestrial)" = "Terrestrial mammals"))%>% 
   mutate(taxonomic_group = dplyr::recode(taxonomic_group, "Molluscs" = "Terrestrial molluscs"))
 
-library(forcats)
 df_long <- df_long %>%
   mutate(taxonomic_group = fct_relevel(taxonomic_group, "Terrestrial molluscs", "Amphibians", "Terrestrial mammals", "Reptiles","Birds","Vascular plants", "Lichens","Mosses","Arthropods"))
 
@@ -952,8 +953,6 @@ ggplot(df_long2, aes(x = Trait, y = taxonomic_group, fill = Proportion)) +
 
 ```{r Dendrogram, echo=TRUE}
 # Load necessary libraries
-library(vegan)
-library(dendextend)
 
 ## Make subset
 subset_data_clust <- overlap_species_threats_no2 %>% select(3,12,16,17,18,19,20,21,22,23,24,25,26,27,29,30,31,33,32,34,35,36,37,38,39,40,42,41,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70)
