@@ -119,13 +119,13 @@ non_na_count <- sum(!is.na(all_species_threats_no2$Total_area_km))
 print(non_na_count)
 table(all_species_threats_no2$Spatial.data.source)
 
-## Find out how many row have species range overlap with caribou values of >20
-all_species_threats_no2$Percent_SAR_caribou <- as.integer(all_species_threats_no2$Percent_SAR_caribou)
-ex <- all_species_threats_no2 %>%
-  filter(.[[73]] > 0) %>%
-  nrow
-ex
 
+count <- all_species_threats_no2 %>%
+  summarise(counts = sum(Total_area_km > 0, na.rm = TRUE))
+count
+count2 <- all_species_threats_no2 %>%
+  summarise(counts = sum(Percent_SAR_caribou > 20, na.rm = TRUE))
+count2
 ###################################################################################
 # Try to compute similarity between species and woodland caribou row using the Jaccard index
 library(vegan)
@@ -372,7 +372,7 @@ overlap_species_threats_no2$Percent_SAR_caribou <- as.numeric(overlap_species_th
 overlap_species_threats_no2$Total_area_km <- as.numeric(overlap_species_threats_no2$Total_area_km)
 
 
-# First delete row 98 (woodland caribou)
+# First delete row 97 (woodland caribou)
 overlap_species_threats_no2 <- overlap_species_threats_no2 %>%
   filter(row_number() != 97)
 
@@ -429,9 +429,6 @@ be2 <- betareg(Trans_row_97_sim ~ scale(log(Total_area_km)), data=overlap_specie
 be3 <- betareg(Trans_row_97_sim ~ taxonomic_group, data=overlap_species_threats_no2, link = "logit")
 be4 <- betareg(Trans_row_97_sim ~ 1, data=overlap_species_threats_no2, link = "logit")
 be5 <- betareg(Trans_row_97_sim ~ scale(Percent_SAR_caribou) + scale(log(Total_area_km)) + taxonomic_group,data=overlap_species_threats_no2, link = "logit")
-#be5 <- betareg(Trans_row_97_sim ~ scale(Percent_SAR_caribou) + scale(log(Total_area_km)) + sara_status + taxonomic_group,data=overlap_species_threats_no2, link = "logit")
-#be3 <- betareg(Trans_row_97_sim ~ sara_status, data=overlap_species_threats_no2, link = "logit")
-
 
 fmList4<-model.sel(be1=be1, be2=be2, be3=be3, be4=be4, be5=be5)
 fmList4
@@ -467,7 +464,6 @@ plot(fitted(be5), residuals(be5), main = "Residuals vs Fitted")
 abline(h = 0, col = "red")
 qqnorm(residuals(be5))
 qqline(residuals(be5), col = "blue")
-
 hist(overlap_species_threats_no2$row_97_sim, breaks = 20, main = "Distribution of Y")
 
 ###############################################################################
@@ -684,15 +680,16 @@ ggplot(summary_data_overlap, aes(x = taxonomic_group, y = Count, fill = Category
   scale_fill_manual(values = c("cadetblue2", "cyan3", "dodgerblue"),
                     labels = c("SAR overlapping with caribou >20%", "SAR overlapping with caribou", "SAR")) +
   theme_minimal() +
+  coord_flip() +
   theme(
     axis.title.y = element_text(margin = margin(t = 0, r = 30, b = 0, l = 0)),
     axis.text.x = element_text(angle = 45, hjust = 1),
     panel.background = element_rect(fill = 'white', colour = 'darkgrey'),
     panel.grid.major = element_line(colour = 'white'),
-    text = element_text(size = 15),  # Increase overall font size
-    axis.title = element_text(size = 16),  # Axis titles
-    axis.text = element_text(size = 15),  # Axis text
-  )
+    text = element_text(size = 12),  # Increase overall font size
+    axis.title = element_text(size = 12),  # Axis titles
+    axis.text = element_text(size = 12))  # Axis text
+  
 
 # Create grouped bar plot of percentages
 # Filter out 100 percentages
