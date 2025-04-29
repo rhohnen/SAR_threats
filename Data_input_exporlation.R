@@ -2,7 +2,7 @@ library(dplyr)
 library(tidyr)
 
 # Read in dataset
-threats <-read.csv('SAR_overlap_threats_NE_species_input_final_noNA.csv')
+threats <-read.csv('SAR_overlap_threats_NE_species_input_final_noNA_caribou_crosschecked.csv')
 
 # Clean dataset
 # Replace spaces with underscores in the taxonomic_group column
@@ -94,20 +94,20 @@ all_species_threats_no2 <- all_species_threats_no2 %>%
 overlap_species_threats_no2 <- all_species_threats_no2 %>%
   filter(Percent_SAR_caribou > 0)
 
-###Create subset of overlap data set using threat subcategories, and excluding overarching categories (that would be correlated with the sub categories)
+## Create subset of overlap data set using threat subcategories, and excluding overarching categories (that would be correlated with the sub categories)
 subset_data <- overlap_species_threats_no2 %>% select(17,18,19,21,22,23,24,26,27,28,30,31,32,33,35,36,37,38,40,41,42,44,45,46,
                                                        48,49,50,51,52,53,55,56,57,58,59,60,62,63,64,66,67,68,69,70)
                                                         
-# Convert all columns to factors
+## Convert all columns to factors
 subset_data <- subset_data %>% mutate(across(everything(), as.numeric))
 
-###Create subset using all over arching categories and subcategories
+## Create subset using all over arching categories and subcategories
 subset_data_large <- overlap_species_threats_no2 %>% select(16,17,18,19,20,21,22,23,24,25,26,27,29,30,31,33,32,34,35,36,37,38,39,40,42,41,43,44,45,46,47,
                                                                48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70)
-# Convert all columns to factors
+## Convert all columns to factors
 subset_data_large <- subset_data_large %>% mutate(across(everything(), as.numeric))
 
-###Create subset with just overarching categories
+## Create subset with just overarching categories
 subset_data_over <- overlap_species_threats_no2 %>% select(16,20,25,29,34,39,43,47,54,61,65)
 
 all_species_threats_no2$Total_area_km[all_species_threats_no2$Total_area_km == "#N/A"] <- NA
@@ -118,7 +118,6 @@ all_species_threats_no2$Percent_caribou_SAR[all_species_threats_no2$Percent_cari
 non_na_count <- sum(!is.na(all_species_threats_no2$Total_area_km))
 print(non_na_count)
 table(all_species_threats_no2$Spatial.data.source)
-
 
 ## Find out how many row have species range overlap with caribou values of >20
 all_species_threats_no2$Percent_SAR_caribou <- as.integer(all_species_threats_no2$Percent_SAR_caribou)
@@ -375,13 +374,13 @@ overlap_species_threats_no2$Total_area_km <- as.numeric(overlap_species_threats_
 
 # First delete row 98 (woodland caribou)
 overlap_species_threats_no2 <- overlap_species_threats_no2 %>%
-  filter(row_number() != 98)
+  filter(row_number() != 97)
 
 # Make reference level for the variable taxonomic group
 overlap_species_threats_no2$taxonomic_group <- factor(overlap_species_threats_no2$taxonomic_group, 
                                         levels = c("Molluscs", "Arthropods", "Birds", "Lichens", "Amphibians",
                                         "Mammals_(terrestrial)", "Mosses", "Reptiles", "Vascular_Plants"))
-overlap_species_threats_no2$taxonomic_group <- relevel(overlap_species_threats_no2$taxonomic_group, ref = "Arthropods")
+overlap_species_threats_no2$taxonomic_group <- relevel(overlap_species_threats_no2$taxonomic_group, ref = "Mosses")
 
 # Try some basic linear models
 n1 <- lm(row_97_sim~ 1, data=overlap_species_threats_no2)
@@ -453,23 +452,104 @@ model_qb
 summary(model_qb)
 
 # Proportion of deviance explained
-null_dev <- summary()$null.deviance
-resid_dev <- summary(a2)$deviance
+null_dev <- summary(be5)$null.deviance
+resid_dev <- summary(be5)$deviance
 prop_deviance_explained <- (null_dev - resid_dev) / null_dev
 cat("Proportion of Deviance Explained: ", prop_deviance_explained, "\n")
 
 # Dispersion parameter
-dispersion <- resid_dev / df.residual(a2)
+dispersion <- resid_dev / df.residual(be5)
 cat("Dispersion Parameter: ", dispersion, "\n")
 
 # Residual Diagnostics
 par(mfrow = c(1, 2)) # Plot side by side
-plot(fitted(be5), residuals(be7), main = "Residuals vs Fitted")
+plot(fitted(be5), residuals(be5), main = "Residuals vs Fitted")
 abline(h = 0, col = "red")
 qqnorm(residuals(be5))
 qqline(residuals(be5), col = "blue")
 
 hist(overlap_species_threats_no2$row_97_sim, breaks = 20, main = "Distribution of Y")
+
+###############################################################################
+
+
+
+
+
+shared_1s <- overlap_species_threats_no2 %>% select(3,12,18,19,21,22,23,26,27,28,30,31,35,37,40,44,46,
+                                           49,55,56,59,60,64,66,68,69)
+shared_1s <- shared_1s %>%
+  mutate(sum = rowSums(across(where(is.numeric), ~ . == 1)))
+shared_1s <- shared_1s %>%
+  mutate(percent = (sum/25)*100)
+
+shared_1s_long <- shared_1s %>%
+  group_by(taxonomic_group) %>%
+  summarise(
+    avg_percentage = mean(percent, na.rm = TRUE),
+    n = sum(!is.na(percent)),
+    sd = sd(percent, na.rm = TRUE),
+    se = sd / sqrt(n),
+    ci_lower = avg_percentage - 1.96 * se,
+    ci_upper = avg_percentage + 1.96 * se
+  )
+shared_1s_long <- shared_1s_long %>%
+  mutate(group = "Threats shared with caribou")
+
+all_1s <- overlap_species_threats_no2 %>% select(3,12,17,18,19,21,22,23,24,26,27,28,30,31,32,33,35,36,37,38,40,41,42,44,45,46,
+                                                    48,49,50,51,52,53,55,56,57,58,59,60,62,63,64,66,67,68,69,70)
+all_1s <- all_1s %>%
+  mutate(sum = rowSums(across(where(is.numeric), ~ . == 1)))
+all_1s <- all_1s %>%
+  mutate(percent = (sum/46)*100)
+shared_alls_long <- all_1s %>%
+  group_by(taxonomic_group) %>%
+  summarise(
+    avg_percentage = mean(percent, na.rm = TRUE),
+    n = sum(!is.na(percent)),
+    sd = sd(percent, na.rm = TRUE),
+    se = sd / sqrt(n),
+    ci_lower = avg_percentage - 1.96 * se,
+    ci_upper = avg_percentage + 1.96 * se
+  )
+shared_alls_long <- shared_alls_long %>%
+  mutate(group = "All threats")
+
+both_1s<-rbind(shared_alls_long, shared_1s_long)
+both_1s <- both_1s %>%
+  mutate(taxonomic_group = as.character(taxonomic_group)) %>%
+  mutate(taxonomic_group = dplyr::recode(taxonomic_group, 
+                                         "Mammals_(terrestrial)" = "Mammals",
+                                         "Vascular_Plants" = "Vascular plants"))
+
+# Specify the desired order of categories
+desired_order8 <- c("Molluscs",
+                    "Amphibians",
+                    "Mammals",
+                    "Reptiles",
+                    "Birds",
+                    "Vascular plants",
+                    "Lichens",
+                    "Arthropods",
+                    "Mosses")
+
+# Reorder the factor levels in the data frame
+both_1s$taxonomic_group <- factor(both_1s$taxonomic_group, levels = desired_order8)
+
+ggplot(both_1s, aes(x = taxonomic_group, y = avg_percentage, color = group)) +
+  geom_point(position = position_dodge(width = 0.5), size = 3) +
+  geom_errorbar(aes(ymin = ci_lower, ymax = ci_upper),
+                position = position_dodge(width = 0.5), width = 0.2) +
+  labs(x = "Taxonomic group", y = "Average percentage threats",
+       color = "Group") +
+  scale_color_manual(values = c("darkblue", "cyan3")) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        text = element_text(size = 12),  # Increase overall font size
+        axis.title = element_text(size = 14),  # Axis titles
+        axis.text = element_text(size = 12),
+        legend.text = element_text(size = 12))  # Axis text)
+
 
 #################################################################################
 ## Plot things!
@@ -518,8 +598,8 @@ desired_order5 <- c("Molluscs",
                     "Reptiles",
                     "Birds",
                     "Vascular plants",
-                    "Arthropods",
                     "Lichens",
+                    "Arthropods",
                     "Mosses",
                     "Total range area",
                     "Percent range overlap",
@@ -834,9 +914,9 @@ ggplot(df_long, aes(x = Trait, y = taxonomic_group, fill = Proportion)) +
 # Load your dataset
 
 heat2 <- overlap_species_threats_no2  # Replace with actual dataset
-###Create subset with just overarching categories
-heat_subset_data_over2 <- heat2 %>% select(12,17,18,19,21,22,23,24,26,27,28,30,31,32,33,35,36,37,38,40,41,42,44,45,46,
-                                         48,49,50,51,52,53,55,56,57,58,59,60,62,63,64,66,67,68,69,70)
+###Create subset with just sub categories of shared threats with caribou
+heat_subset_data_over2 <- heat2 %>% select(12,18,19,21,22,23,26,27,28,30,31,35,37,40,44,46,
+                                         49,55,56,59,60,64,66,68,69)
 # Assuming the dataset has 'Taxonomic_Group' and binary trait columns
 taxonomic_col2 <- "taxonomic_group"  # Adjust as needed
 trait_cols2 <- setdiff(names(heat_subset_data_over2), taxonomic_col2)
@@ -958,10 +1038,141 @@ ggplot(df_long2, aes(x = Trait, y = taxonomic_group, fill = Proportion)) +
   geom_tile() +
   scale_fill_gradient(low = "white", high = "blue", name = "Proportion") +
   theme_minimal() +
-  labs(x = "Trait", y = "Taxonomic Group") + 
+  labs(x = "Threat", y = "Taxonomic Group") + 
   theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 12),
         axis.text.y = element_text(size = 12),
         axis.title = element_text(size = 12))# Axis titles
+#######################
+### Make a heatmap for subcategories that don't overlap with cariobu
+heat3 <- overlap_species_threats_no2  # Replace with actual dataset
+###Create subset with just sub categories of shared threats with caribou
+heat_subset_data_over3 <- heat3 %>% select(12,17,24,32,33,36,38,41,42,45,48,50,51,52,53,57,58,62,63,67,70)
+# Assuming the dataset has 'Taxonomic_Group' and binary trait columns
+taxonomic_col3 <- "taxonomic_group"  # Adjust as needed
+trait_cols3 <- setdiff(names(heat_subset_data_over3), taxonomic_col3)
+
+# Convert to long format and calculate proportions
+df_long3 <- heat_subset_data_over3 %>%
+  pivot_longer(cols = all_of(trait_cols3), names_to = "Trait", values_to = "Presence") %>%
+  group_by(taxonomic_group, Trait) %>%
+  summarise(Proportion = mean(Presence), .groups = "drop") 
+
+df_long3 <- df_long3 %>%
+  mutate(Trait = dplyr::recode(Trait, 
+                               "X10_1_volcano" = "10.1 Volcanic events",
+                               "X10_2_earth_quake" = "10.2 Earthquake/tsunami events",
+                               "X10_3_avalanche" = "10.3 Avalances/landside events",
+                               "X11_1_hab_shift" = "11.1 Climate change caused habitat shifts",
+                               "X11_2_drought" = "11.2 Climate change caused droughts",
+                               "X11_3_temp_extreme" = "11.3 Climate change caused temperature extremes",
+                               "X11_4_storm_flood" = "11.4 Climate change caused storms and flooding",
+                               "X11_5_other_impacts" = "11.5 Other impacts of climate change",
+                               "X1_1_house_urban" = "1.1 Housing and urban development",
+                               "X1_2_comm_industrial" = "1.2 Commercial and industrial development",
+                               "X1_3_tourisim_rec" = "1.2 Tourisim and recreational development",
+                               "X2_1_crops" = "2.1 Annual and perennial crops",
+                               "X2_2_wood_planta" = "2.2 Wood and pulp plantations",
+                               "X2_3_livestock_farm" = "2.3 Livestock farming",
+                               "X2_4_aqua" = "2.4 Marine and freshwater aquaculture",
+                               "X3_1_oil_gas" = "3.1 Oil and gas drilling",
+                               "X3_2_mining" = "3.2 Mining and quarrying",
+                               "X3_3_renewable" = "3.3 Renewable energy development",
+                               "X4_1_roads" = "4.1 Roads",
+                               "X4_2_utility_service" = "4.2 Utility and service corridors",
+                               "X4_3_shipping_lane" = "4.3 Shipping lanes",
+                               "X4_4_flight_path" = "4.4 Flight paths",
+                               "X5_1_hunting" = "5.1 Hunting and collection of terrestial animals",
+                               "X5_2_gathering" = "5.2 Hunting and collection of terrestrial plants",
+                               "X5_3_logging" = "5.3 Logging and wood harvesting",
+                               "X5_4_fishing" = "5.4 Fishing and harvesting of aquatic resources",
+                               "X6_1_recreation" = "6.1 Recreational activities",
+                               "X6_2_war" = "6.2 War and civil unrest",
+                               "X6_3_work_activity" = "6.3 Work activities",
+                               "X7_1_fire_fire_sup" = "7.1 Fire and fire suppression",
+                               "X7_2_dams_water" = "7.2 Dam and water management/use",
+                               "X7_3_ecosysmod" = "7.3 Other ecosystem modifications",
+                               "X8_1_invasive_nonative" = "8.1 Invasive species",
+                               "X8_2_problematic_native" = "8.2 Problematic species",
+                               "X8_3_introduced_genetic" = "8.3 Introduced genetic material",
+                               "X8_4_problematic_species" = "8.4 Problematic species of unknown origin",
+                               "X8_5_viral_disease" = "8.5 Viral induced diseases",
+                               "X8_6_disease_unknown" = "8.6 Diseases of unknown cause",
+                               "X9_1_sewage_waste_water" = "9.1 Domestic and urban waste water",
+                               "X9_2_industrial_waste" = "9.2 Industrial and military effluents",
+                               "X9_3_agricultural_waste" = "9.3 Agricultural and forestry effluents",
+                               "X9_4_garbage_soil_waste" = "9.4 Garbage and solid waste",
+                               "X9_5_air_boure_pollute" = "9.5 Air-bourne pollutants",
+                               "X9_6_excess_energy" = "9.6 Excess energy"))
+
+
+df_long3 <- df_long3 %>%
+  mutate(taxonomic_group = as.character(taxonomic_group)) %>% 
+  mutate(taxonomic_group = dplyr::recode(taxonomic_group, "Vascular_Plants" = "Vascular plants",))%>% 
+  mutate(taxonomic_group = dplyr::recode(taxonomic_group, "Mammals_(terrestrial)" = "Terrestrial mammals"))%>% 
+  mutate(taxonomic_group = dplyr::recode(taxonomic_group, "Molluscs" = "Terrestrial molluscs"))
+
+df_long3 <- df_long3 %>%
+  mutate(taxonomic_group = fct_relevel(taxonomic_group, "Terrestrial molluscs", "Amphibians", "Terrestrial mammals", "Reptiles","Birds","Vascular plants", "Lichens","Mosses","Arthropods"))
+
+# Specify the desired order of categories
+desired_order7 <- c(
+  "1.1 Housing and urban development",
+  "1.2 Commercial and industrial development",
+  "1.2 Tourisim and recreational development",
+  "2.1 Annual and perennial crops",
+  "2.2 Wood and pulp plantations",
+  "2.3 Livestock farming",
+  "2.4 Marine and freshwater aquaculture",
+  "3.1 Oil and gas drilling",
+  "3.2 Mining and quarrying",
+  "3.3 Renewable energy development",
+  "4.1 Roads",
+  "4.2 Utility and service corridors",
+  "4.3 Shipping lanes",
+  "4.4 Flight paths",
+  "5.1 Hunting and collection of terrestial animals",
+  "5.2 Hunting and collection of terrestrial plants",
+  "5.3 Logging and wood harvesting",
+  "5.4 Fishing and harvesting of aquatic resources",
+  "6.1 Recreational activities",
+  "6.2 War and civil unrest",
+  "6.3 Work activities",
+  "7.1 Fire and fire suppression",
+  "7.2 Dam and water management/use",
+  "7.3 Other ecosystem modifications",
+  "8.1 Invasive species",
+  "8.2 Problematic species",
+  "8.3 Introduced genetic material",
+  "8.4 Problematic species of unknown origin",
+  "8.5 Viral induced diseases",
+  "8.6 Diseases of unknown cause",
+  "9.1 Domestic and urban waste water",
+  "9.2 Industrial and military effluents",
+  "9.3 Agricultural and forestry effluents",
+  "9.4 Garbage and solid waste",
+  "9.5 Air-bourne pollutants",
+  "9.6 Excess energy",
+  "10.1 Volcanic events",
+  "10.2 Earthquake/tsunami events",
+  "10.3 Avalances/landside events",
+  "11.1 Climate change caused habitat shifts",
+  "11.2 Climate change caused droughts",
+  "11.3 Climate change caused temperature extremes",
+  "11.4 Climate change caused storms and flooding",
+  "11.5 Other impacts of climate change")
+
+# Reorder the factor levels in the data frame
+df_long3$Trait <- factor(df_long3$Trait, levels = desired_order7)
+
+ggplot(df_long3, aes(x = Trait, y = taxonomic_group, fill = Proportion)) +
+  geom_tile() +
+  scale_fill_gradient(low = "white", high = "black", name = "Proportion") +
+  theme_minimal() +
+  labs(x = "Threat", y = "Taxonomic Group") + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 12),
+        axis.text.y = element_text(size = 12),
+        axis.title = element_text(size = 12))# Axis titles
+
 
 ###################################################################################
 ## Try classification tree
@@ -1054,53 +1265,36 @@ labels(dendrogram_colored) <- subset_data_clust$common_name
 # Move X-axis label lower using mtext()
 mtext("Species", side = 1, line = 30, cex = 1.5)  # side = 1 is for X-axis
 
+#####################################################
+## Make a plot that has the porportion of taxonomic group that lists the caribou threat
+overlap_species_threats_no2 <- overlap_species_threats_no2 %>%
+  mutate(common_name = gsub(" ", "_", common_name))
+subset_plot <- overlap_species_threats_no2 %>%
+select(16,20,25,29,34,39,43,47,54,61,65)
 
+caribou_traits <- overlap_species_threats_no2 %>%
+  filter(common_name == "woodland_caribou") %>%
+  select(-common_name, -taxonomic_group) %>%
+  select(where(~ isTRUE(.x == 1))) %>%
+  names()
 
+caribou_filtered <- overlap_species_threats_no2 %>%
+  select(common_name, taxonomic_group, all_of(caribou_traits))
 
-###################################
-library(vegan)
-library(ggdendro)
-# Step 1: Set the 'Species' column as row names
-subset_data_clust <- overlap_species_threats_no2 %>% select(3,12,16,17,18,19,20,21,22,23,24,25,26,27,29,30,31,33,32,34,35,36,37,38,39,40,42,41,43,44,45,46,47,
-                                                            48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70)
-# Step 1: Perform hierarchical clustering (already done previously)
-# Prepare the data (removing 'common_name' column from the dataset)
-subset_data_clust2 <- subset_data_clust %>% select(-common_name) %>% select(-taxonomic_group)
+proportions <- caribou_filtered %>%
+  group_by(taxonomic_group) %>%
+  summarise(across(all_of(caribou_traits), ~ mean(.x), .names = "prop_{.col}")) %>%
+  pivot_longer(
+    cols = starts_with("prop_"),
+    names_to = "Trait",
+    values_to = "Proportion"
+  ) %>%
+  mutate(Trait = gsub("prop_", "", Trait))
 
-# Match the labels (species names) to the order used in the dendrogram
-
-# Get the species names from the original data
-species_names <- subset_data_clust$common_name
-
-# Get the order of species in the dendrogram
-dend_labels_order <- labels(dendrogram)
-
-# Make sure the row names match the clustering
-# Assign the species names as rownames BEFORE calculating the distance
-rownames(subset_data_clust) <- subset_data_clust$common_name
-
-# Now get species names in the same order as dendrogram tips
-species_names_ordered <- species_names[match(dend_labels_order, rownames(subset_data_clust))]
-
-# Check for any NAs (in case of mismatch)
-if (any(is.na(species_names_ordered))) {
-  stop("Some species names could not be matched to the dendrogram labels.")
-}
-
-# Set the corrected species names to the dendrogram
-labels(dendrogram_colored) <- species_names_ordered
-
-# Plot again with correctly aligned species labels
-plot(dendrogram_colored,
-     main = "Hierarchical Clustering Dendrogram Colored by Taxonomic Group",
-     xlab = "Species",
-     ylab = "Distance",
-     cex.axis = 1.2,
-     cex.lab = 1.5,
-     cex.main = 1.5,
-     las = 2,
-     hang = -1)
-
-# Add axis labels
-mtext("Species", side = 1, line = 4, cex = 1.5)
-mtext("Distance", side = 2, line = 4, cex = 1.5)
+ggplot(proportions, aes(x = Trait, y = Proportion, fill = taxonomic_group)) +
+  geom_bar(stat = "identity", position = position_dodge()) +
+  labs(title = "Proportion of species with caribou traits by taxonomic group",
+       x = "Trait",
+       y = "Proportion") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
