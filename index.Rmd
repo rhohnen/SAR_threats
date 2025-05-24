@@ -421,6 +421,8 @@ fmList4
 top_models <- subset(fmList4, delta <= 2)
 modelav <-model.avg(top_models)
 summary(modelav)
+
+summary(be5)
 ```
 Evidence of greater threat overlap with caribou for species with greater range sizes, more overlap in their range with caribou, and for mammals and birds.
 
@@ -453,20 +455,17 @@ Currently this is the model averaged estimates of be5 and be3
 # Plot model averaged coefficient estimates of best fitting model
 # Extract coefficients and standard errors from the model
 
-model_summary <- summary(modelav)  
-# Convert coefficients to a data frame
-coefficients <- as.data.frame(model_summary$coefmat.full)
-
-# Check column names to ensure correct reference
-print(colnames(coefficients))
+# Extract coefficients and standard errors from the single best model
+model_summary <- summary(be5)
+coefficients <- as.data.frame(model_summary$coefficients)
 
 # Create a new data frame for plotting
 comp3 <- data.frame(
   Variable = rownames(coefficients),
-  Estimate = coefficients[, "Estimate"],
-  Std_Error = coefficients[, "Std. Error"],
-  Lower = coefficients[, "Estimate"] - 1.96 * coefficients[, "Std. Error"],  # 95% CI lower bound
-  Upper = coefficients[, "Estimate"] + 1.96 * coefficients[, "Std. Error"]   # 95% CI upper bound
+  Estimate = coefficients[, "mean.Estimate"],
+  Std_Error = coefficients[, "mean.Std..Error"],
+  Lower = coefficients[, "mean.Estimate"] - 1.96 * coefficients[, "mean.Std..Error"],
+  Upper = coefficients[, "mean.Estimate"] + 1.96 * coefficients[, "mean.Std..Error"]
 )
 
 # Rename categories
@@ -480,7 +479,7 @@ comp3 <- comp3 %>%
                          "taxonomic_groupMammals_(terrestrial)" = "Mammals",
                          "taxonomic_groupReptiles" = "Reptiles",
                          "taxonomic_groupVascular_Plants" = "Vascular plants",
-                         "taxonomic_groupMolluscs" = "Molluscs",
+                         "taxonomic_groupMolluscs" = "Terrestrial molluscs",
                          "taxonomic_groupMosses" = "Mosses",
                          "scale(log(Total_area_km))" = "Total range area",
                          "scale(Percent_SAR_caribou)" = "Percent range overlap",
@@ -488,7 +487,7 @@ comp3 <- comp3 %>%
 
 
 # Specify the desired order of categories
-desired_order5 <- c("Molluscs",
+desired_order5 <- c("Terrestrial molluscs",
                     "Amphibians",
                     "Mammals",
                     "Reptiles",
@@ -518,7 +517,6 @@ ggplot(comp4,aes(x=Variable,y=Estimate)) +
     text = element_text(size = 12),  # Increase overall font size
     axis.title = element_text(size = 14),  # Axis titles
     axis.text = element_text(size = 12))  # Axis text
-
 ```
 
 ## Plot shared percentage of all possible threat columns and percentage of threat colums shared with caribou
