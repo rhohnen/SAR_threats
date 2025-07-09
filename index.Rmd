@@ -85,7 +85,7 @@ all_species_threats_no2 <- all_species_threats_no2 %>%
 # But these groups were deleted anyway as they didn't overlap in range with woodland caribou.
 
 ##################################################################################
-## Create row for combined mountain and boreal caribou threats
+## Create row for combined mountain, boreal, eastern migratory and Torgat mountain, Atlantic Gaspesie caribou threats
 caribous <- all_species_threats_no2 %>% filter(rowID %in% c(256,264,2136,2137,2162,2163))
 
 # Extract columns 1-14 from row 264 (keep as a single row)
@@ -424,7 +424,7 @@ top_models <- subset(fmList4, delta <= 2)
 modelav <-model.avg(top_models)
 summary(modelav)
 
-summary(be5)
+summary(be3)
 ```
 Evidence of greater threat overlap with caribou for species with greater range sizes, more overlap in their range with caribou, and for mammals and birds.
 
@@ -435,16 +435,16 @@ Look at residuals vs fitted and QQ plots
 
 
 # Look into variance inflation factors
-vif(be5)
-df_resid <- be5$df.residual
-df_resid
+# vif(be3)
+# df_resid <- be5$df.residual
+# df_resid
 
 # Residual Diagnostics
 par(mfrow = c(1, 2)) # Plot side by side
-plot(fitted(be5), residuals(be5), main = "Residuals vs Fitted")
+plot(fitted(be3), residuals(be3), main = "Residuals vs Fitted")
 abline(h = 0, col = "red")
-qqnorm(residuals(be5))
-qqline(residuals(be5), col = "blue")
+qqnorm(residuals(be3))
+qqline(residuals(be3), col = "blue")
 
 hist(overlap_species_threats_no2$row_97_sim, breaks = 20, main = "Distribution of Y")
 
@@ -458,7 +458,7 @@ Currently this is the model averaged estimates of be5 and be3
 # Extract coefficients and standard errors from the model
 
 # Extract coefficients and standard errors from the single best model
-model_summary <- summary(be5)
+model_summary <- summary(be3)
 coefficients <- as.data.frame(model_summary$coefficients)
 
 # Create a new data frame for plotting
