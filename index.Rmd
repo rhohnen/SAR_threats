@@ -50,8 +50,9 @@ all_species_threats <- all_species_threats %>%
   ungroup()
 
 # Delete caribou that aren't relevant 
+# Delete caribou that aren't relevant 
 all_species_threats <- all_species_threats %>%
-  filter(!(common_name %in% c("caribou_atlantic-gaspesie_population", "caribou_dolphin_and_union_population", "peary_caribou")))
+  filter(!(common_name %in% c("caribou_dolphin_and_union_population", "peary_caribou")))
 
 # To make a consistent data set replace any 2 values with a 1
 all_species_threats_no2 <- all_species_threats %>%
@@ -85,12 +86,12 @@ all_species_threats_no2 <- all_species_threats_no2 %>%
 
 ##################################################################################
 ## Create row for combined mountain and boreal caribou threats
-caribous <- all_species_threats_no2 %>% filter(rowID %in% c(264,2136,2137))
+caribous <- all_species_threats_no2 %>% filter(rowID %in% c(256,264,2136,2137,2162,2163))
 
 # Extract columns 1-14 from row 264 (keep as a single row)
 boreal_row_start <- caribous %>% filter(rowID == 264) %>% select(1:15)
 
-# Extract columns 1-14 from row 264 (keep as a single row) -> will need to be updated with woodland caribou area values
+# Extract columns 71-76 from row 264 (keep as a single row) -> will need to be updated with woodland caribou area values
 boreal_row_end <- caribous %>% filter(rowID == 264) %>% select(71:76)
 
 # Apply the OR operation across rows for columns 15-40 (ie if there is a 1 in the boreal or the mountain rows then in = 1)
@@ -114,9 +115,10 @@ caribou_row2$year_published <- as.integer(caribou_row2$year_published)
 # Bind to existing data set
 all_species_threats_no2 <- bind_rows(all_species_threats_no2, caribou_row2)
 
-# Delete boreal and mountain caribou rows
+# Delete boreal, mountain, torgat, eastern migratory and atlantic gaspesie caribou rows
 all_species_threats_no2 <- all_species_threats_no2 %>%
-  filter(!(common_name %in% c("woodland_caribou_northern_mountain_population", "woodland_caribou_southern_mountain_population", "caribou_boreal_population")))
+  filter(!(common_name %in% c("woodland_caribou_northern_mountain_population", "woodland_caribou_southern_mountain_population", "caribou_boreal_population",                      "caribou_atlantic-gaspesie_population","eastern_migratory_caribou","torgat_mountain")))
+
 ```
 
 ## Make subsets for later use

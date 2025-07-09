@@ -21,7 +21,7 @@ all_species_threats <- all_species_threats %>%
 
 # Delete caribou that aren't relevant 
 all_species_threats <- all_species_threats %>%
-  filter(!(common_name %in% c("caribou_atlantic-gaspesie_population", "caribou_dolphin_and_union_population", "peary_caribou")))
+  filter(!(common_name %in% c("caribou_dolphin_and_union_population", "peary_caribou")))
 
 # To make a consistent data set replace any 2 values with a 1
 all_species_threats_no2 <- all_species_threats %>%
@@ -54,13 +54,13 @@ all_species_threats_no2 <- all_species_threats_no2 %>%
 # But these groups were deleted anyway as they didn't overlap in range with woodland caribou.
 
 ##################################################################################
-## Create row for combined mountain and boreal caribou threats
-caribous <- all_species_threats_no2 %>% filter(rowID %in% c(264,2136,2137))
+## Create row for combined mountain, boreal, eastern migratory and Torgat mountain, Atlantic Gaspesie caribou threats
+caribous <- all_species_threats_no2 %>% filter(rowID %in% c(256,264,2136,2137,2162,2163))
 
 # Extract columns 1-14 from row 264 (keep as a single row)
 boreal_row_start <- caribous %>% filter(rowID == 264) %>% select(1:15)
 
-# Extract columns 1-14 from row 264 (keep as a single row) -> will need to be updated with woodland caribou area values
+# Extract columns 71-76 from row 264 (keep as a single row) -> will need to be updated with woodland caribou area values
 boreal_row_end <- caribous %>% filter(rowID == 264) %>% select(71:76)
 
 # Apply the OR operation across rows for columns 15-40 (ie if there is a 1 in the boreal or the mountain rows then in = 1)
@@ -77,8 +77,8 @@ caribou_row2$year_published <- "NA"
 caribou_row2$date_last_access <- "NA"
 caribou_row2$Percent_SAR_caribou <- "100"
 caribou_row2$Percent_caribou_SAR <- "100"
-caribou_row2$Total_area_km <- "3459299.35"
-caribou_row2$Intersect_caribou_km <- "3459299.35"
+caribou_row2$Total_area_km <- "3459299.35" # needs changing wne new areas calculated
+caribou_row2$Intersect_caribou_km <- "3459299.35" # needs changing wne new areas calculated
 caribou_row2$year_published <- as.integer(caribou_row2$year_published)
 
 # Bind to existing data set
@@ -86,7 +86,8 @@ all_species_threats_no2 <- bind_rows(all_species_threats_no2, caribou_row2)
 
 # Delete boreal and mountain caribou rows
 all_species_threats_no2 <- all_species_threats_no2 %>%
-  filter(!(common_name %in% c("woodland_caribou_northern_mountain_population", "woodland_caribou_southern_mountain_population", "caribou_boreal_population")))
+  filter(!(common_name %in% c("woodland_caribou_northern_mountain_population", "woodland_caribou_southern_mountain_population", "caribou_boreal_population",
+                              "caribou_atlantic-gaspesie_population","eastern_migratory_caribou","torgat_mountain")))
 
 #############################################################
 ## Now make subsets!
@@ -120,11 +121,9 @@ print(non_na_count)
 table(all_species_threats_no2$Spatial.data.source)
 
 
-count <- all_species_threats_no2 %>%
-  summarise(counts = sum(Total_area_km > 0, na.rm = TRUE))
+count <- all_species_threats_no2 %>% summarise(counts = sum(Total_area_km > 0, na.rm = TRUE))
 count
-count2 <- all_species_threats_no2 %>%
-  summarise(counts = sum(Percent_SAR_caribou > 20, na.rm = TRUE))
+count2 <- all_species_threats_no2 %>% summarise(counts = sum(Percent_SAR_caribou > 20, na.rm = TRUE))
 count2
 ###################################################################################
 # Try to compute similarity between species and woodland caribou row using the Jaccard index
@@ -432,6 +431,7 @@ be5 <- betareg(Trans_row_97_sim ~ scale(Percent_SAR_caribou) + scale(log(Total_a
 
 fmList4<-model.sel(be1=be1, be2=be2, be3=be3, be4=be4, be5=be5)
 fmList4
+be1
 top_models <- subset(fmList4, delta <= 2)
 modelav <-model.avg(top_models)
 summary(modelav)
