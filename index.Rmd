@@ -436,7 +436,7 @@ Look at residuals vs fitted and QQ plots
 
 # Look into variance inflation factors
 # vif(be3)
-# df_resid <- be5$df.residual
+# df_resid <- be3$df.residual
 # df_resid
 
 # Residual Diagnostics
