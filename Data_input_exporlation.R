@@ -1,8 +1,7 @@
-library(dplyr)
-library(tidyr)
+library(tidyverse)
 
 # Read in dataset
-threats <-read.csv('SAR_overlap_threats_NE_species_input_final_noNA_caribou_crosschecked.csv')
+threats <-read.csv('SAR_overlap_threats_NE_species_input_final_noNA_caribou_crosschecked_new_area_easternmigtorgat.csv')
 
 # Clean dataset
 # Replace spaces with underscores in the taxonomic_group column
@@ -54,8 +53,8 @@ all_species_threats_no2 <- all_species_threats_no2 %>%
 # But these groups were deleted anyway as they didn't overlap in range with woodland caribou.
 
 ##################################################################################
-## Create row for combined mountain, boreal, eastern migratory and Torgat mountain, Atlantic Gaspesie caribou threats
-caribous <- all_species_threats_no2 %>% filter(rowID %in% c(256,264,2136,2137,2162,2163))
+## Create row for combined mountain, boreal, eastern migratory and Torgat mountain, Atlantic Gaspesie caribou, Newfoundland threats
+caribous <- all_species_threats_no2 %>% filter(rowID %in% c(256,264,2136,2137,2162,2163,2167))
 
 # Extract columns 1-14 from row 264 (keep as a single row)
 boreal_row_start <- caribous %>% filter(rowID == 264) %>% select(1:15)
@@ -87,7 +86,7 @@ all_species_threats_no2 <- bind_rows(all_species_threats_no2, caribou_row2)
 # Delete boreal and mountain caribou rows
 all_species_threats_no2 <- all_species_threats_no2 %>%
   filter(!(common_name %in% c("woodland_caribou_northern_mountain_population", "woodland_caribou_southern_mountain_population", "caribou_boreal_population",
-                              "caribou_atlantic-gaspesie_population","eastern_migratory_caribou","torgat_mountain")))
+                              "caribou_atlantic-gaspesie_population","eastern_migratory_caribou","torgat_mountain", 'caribou_newfoundland_population')))
 
 #############################################################
 ## Now make subsets!
@@ -373,13 +372,13 @@ overlap_species_threats_no2$Total_area_km <- as.numeric(overlap_species_threats_
 
 # First delete row 97 (woodland caribou)
 overlap_species_threats_no2 <- overlap_species_threats_no2 %>%
-  filter(row_number() != 97)
+  filter(speciesID!=54)
 
 # Make reference level for the variable taxonomic group
 overlap_species_threats_no2$taxonomic_group <- factor(overlap_species_threats_no2$taxonomic_group, 
                                         levels = c("Molluscs", "Arthropods", "Birds", "Lichens", "Amphibians",
                                         "Mammals_(terrestrial)", "Mosses", "Reptiles", "Vascular_Plants"))
-overlap_species_threats_no2$taxonomic_group <- relevel(overlap_species_threats_no2$taxonomic_group, ref = "Mosses")
+overlap_species_threats_no2$taxonomic_group <- relevel(overlap_species_threats_no2$taxonomic_group, ref = "Birds")
 
 # Try some basic linear models
 n1 <- lm(row_97_sim~ 1, data=overlap_species_threats_no2)
@@ -431,10 +430,10 @@ be5 <- betareg(Trans_row_97_sim ~ scale(Percent_SAR_caribou) + scale(log(Total_a
 
 fmList4<-model.sel(be1=be1, be2=be2, be3=be3, be4=be4, be5=be5)
 fmList4
-be1
-top_models <- subset(fmList4, delta <= 2)
-modelav <-model.avg(top_models)
-summary(modelav)
+summary(be5)
+# top_models <- subset(fmList4, delta <= 2)
+# modelav <-model.avg(top_models)
+# summary(modelav)
 
 # Look into variance inflation factors
 vif(be5)
@@ -553,24 +552,27 @@ ggplot(both_1s, aes(x = taxonomic_group, y = avg_percentage, color = group)) +
 # Plot model averaged coefficient estimates of best fitting model
 # Extract coefficients and standard errors from the model
 
-model_summary <- summary(modelav)  
-# Convert coefficients to a data frame
-coefficients <- as.data.frame(model_summary$coefmat.full)
+# model_summary <- summary(modelav)  
+# Get summary object
+sum_be5 <- summary(be5)
 
-# Check column names to ensure correct reference
-print(colnames(coefficients))
+# Extract coefficients for the mean model
+coef_table <- coef(sum_be5)$mean  
 
-# Create a new data frame for plotting
-comp3 <- data.frame(
-  Variable = rownames(coefficients),
-  Estimate = coefficients[, "Estimate"],
-  Std_Error = coefficients[, "Std. Error"],
-  Lower = coefficients[, "Estimate"] - 1.96 * coefficients[, "Std. Error"],  # 95% CI lower bound
-  Upper = coefficients[, "Estimate"] + 1.96 * coefficients[, "Std. Error"]   # 95% CI upper bound
-)
+# Turn into a data frame
+coefficients_df <- as.data.frame(coef_table)
+coefficients_df$Variable <- rownames(coef_table)
+rownames(coefficients_df) <- NULL
+
+# Add confidence intervals
+
+coefficients_df <- coefficients_df %>%
+  mutate(
+    Lower = Estimate - 1.96 * `Std. Error`,
+    Upper = Estimate + 1.96 * `Std. Error`)
 
 # Rename categories
-comp3 <- comp3 %>%
+comp3 <- coefficients_df %>%
   mutate(Variable = as.character(Variable)) %>%
   mutate(Variable = dplyr::recode(Variable, 
                          "taxonomic_groupArthropods" = "Arthropods",
@@ -588,24 +590,23 @@ comp3 <- comp3 %>%
 
 
 # Specify the desired order of categories
-desired_order5 <- c("Molluscs",
-                    "Amphibians",
-                    "Mammals",
+desired_order5 <- c("Amphibians",
+                    "Molluscs",
                     "Reptiles",
-                    "Birds",
+                    "Mammals",
                     "Vascular plants",
                     "Lichens",
-                    "Arthropods",
+                    "Birds",
                     "Mosses",
+                    "Arthropods",
                     "Total range area",
                     "Percent range overlap",
                     "Intercept")
  
 # Reorder the factor levels in the data frame
 comp3$Variable <- factor(comp3$Variable, levels = desired_order5)
-comp4 <-na.omit(comp3)
 
-ggplot(comp4,aes(x=Variable,y=Estimate)) +
+ggplot(comp3,aes(x=Variable,y=Estimate)) +
   geom_hline(yintercept = 0, col = "darkgrey") +  # Horizontal line at y = 0
   geom_point() +
   geom_errorbar(aes(ymin=Lower,ymax=Upper)) +
