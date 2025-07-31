@@ -24,6 +24,7 @@ library(MuMIn)
 library(betareg)
 library(vegan)
 library(dendextend)
+library(gridExtra)
 
 ```
 
@@ -148,16 +149,21 @@ all_species_threats_no2$Percent_SAR_caribou[all_species_threats_no2$Percent_SAR_
 all_species_threats_no2$Percent_caribou_SAR[all_species_threats_no2$Percent_caribou_SAR == "#N/A"] <- NA
 
 non_na_count <- sum(!is.na(all_species_threats_no2$Total_area_km))
-print(non_na_count)
-table(all_species_threats_no2$Spatial.data.source)
 
 ## Find out how many row have species range overlap with caribou values of >20
 all_species_threats_no2$Percent_SAR_caribou <- as.integer(all_species_threats_no2$Percent_SAR_caribou)
-ex <- all_species_threats_no2 %>%
-  filter(.[[73]] > 0) %>%
-  nrow
-ex
+ex0 <- all_species_threats_no2 %>%
+  filter(.[[73]] > 0) %>% nrow
 
+ex20 <- all_species_threats_no2 %>%
+  filter(.[[73]] > 20) %>% nrow
+
+## Find out how many species we have range data for
+exall <- all_species_threats_no2 %>%
+filter(.[[72]] > 0) %>% nrow
+
+#Find out how many species we have Ebar data for
+exebar <- all_species_threats_no2 %>% filter(.[[75]] == 'Ebar') %>% nrow
 ```
 
 ## Calculate the Jaccard Index
@@ -414,10 +420,13 @@ Run a beta regression model that examine drivers of overlap in threats (Jaccard 
 
 # Run some models looking at descriptors of threat overlap with caribou
 
-overlap_species_threats_no2$sara_status <- as.factor(overlap_species_threats_no2$sara_status)
-overlap_species_threats_no2$taxonomic_group <- as.factor(overlap_species_threats_no2$taxonomic_group)
-overlap_species_threats_no2$Percent_SAR_caribou <- as.numeric(overlap_species_threats_no2$Percent_SAR_caribou)
-overlap_species_threats_no2$Total_area_km <- as.numeric(overlap_species_threats_no2$Total_area_km)
+overlap_species_threats_no2 <- overlap_species_threats_no2 %>%
+  mutate(
+    sara_status = as.factor(sara_status),
+    taxonomic_group = as.factor(taxonomic_group),
+    Percent_SAR_caribou = as.numeric(Percent_SAR_caribou),
+    Total_area_km = as.numeric(Total_area_km)
+  )
 
 # First delete row 97 (woodland caribou)
 overlap_species_threats_no2 <- overlap_species_threats_no2 %>%
@@ -426,9 +435,8 @@ overlap_species_threats_no2 <- overlap_species_threats_no2 %>%
 # Make reference level for the variable taxonomic group
 overlap_species_threats_no2$taxonomic_group <- factor(overlap_species_threats_no2$taxonomic_group, levels = c("Molluscs", "Arthropods", "Birds", "Lichens", "Amphibians","Mammals_(terrestrial)", "Mosses", "Reptiles", "Vascular_Plants"))
 overlap_species_threats_no2$taxonomic_group <- relevel(overlap_species_threats_no2$taxonomic_group, ref = "Birds")
-
+    
 # Try betareg
-# First transform be response variables so they're not close to 0 or 1
 # First transform be response variables so they're not close to 0 or 1
 overlap_species_threats_no2 <- overlap_species_threats_no2 %>%
   mutate(Trans_row_97_sim = (overlap_species_threats_no2$row_97_sim * (nrow(overlap_species_threats_no2) - 1) + 0.5)/(nrow(overlap_species_threats_no2)))
@@ -442,6 +450,8 @@ be5 <- betareg(Trans_row_97_sim ~ scale(Percent_SAR_caribou) + scale(log(Total_a
 fmList4<-model.sel(be1=be1, be2=be2, be3=be3, be4=be4, be5=be5)
 fmList4
 summary(be5)
+
+vif(be5)
 ```
 Evidence of greater threat overlap with caribou for species with greater range sizes, more overlap in their range with caribou, and for mammals and birds.
 
@@ -449,19 +459,50 @@ Evidence of greater threat overlap with caribou for species with greater range s
 
 Look at residuals vs fitted and QQ plots
 ```{r check fit, echo=TRUE}
-# Look into variance inflation factors
-vif(be5)
-df_resid <- be5$df.residual
-df_resid
+# Residuals vs Fitted plot
+p1 <- ggplot(data = NULL, aes(x = fitted(be5), y = residuals(be5))) +
+  geom_point() +
+  geom_hline(yintercept = 0, color = "red") +
+  labs(title = "Residuals vs Fitted", x = "Fitted values", y = "Residuals") +
+    theme(
+    axis.title.y = element_text(margin = margin(t = 0, r = 30, b = 0, l = 0)),
+    panel.background = element_rect(fill = 'white', colour = 'darkgrey'),
+    panel.grid.major = element_line(colour = 'white'),
+    text = element_text(size = 10),  # Increase overall font size
+    axis.title = element_text(size = 10),  # Axis titles
+    axis.text = element_text(size = 10))  # Axis text
 
-# Residual Diagnostics
-par(mfrow = c(1, 2)) # Plot side by side
-plot(fitted(be3), residuals(be5), main = "Residuals vs Fitted")
-abline(h = 0, col = "red")
-qqnorm(residuals(be5))
-qqline(residuals(be5), col = "blue")
+# Q-Q plot
+p2 <- ggplot(data = NULL, aes(sample = residuals(be5))) +
+  stat_qq() +
+  stat_qq_line(color = "blue") +
+  labs(title = "Normal Q-Q Plot") +
+    theme(
+    axis.title.y = element_text(margin = margin(t = 0, r = 30, b = 0, l = 0)),
+    panel.background = element_rect(fill = 'white', colour = 'darkgrey'),
+    panel.grid.major = element_line(colour = 'white'),
+    text = element_text(size = 10),  # Increase overall font size
+    axis.title = element_text(size = 10),  # Axis titles
+    axis.text = element_text(size = 10))  # Axis text
 
-hist(overlap_species_threats_no2$row_97_sim, breaks = 20, main = "Distribution of Y")
+# Save plots as one figure
+jpeg("./plots/F1I.jpeg",  width = 6000, height = 3000, res = 600)
+grid.arrange(p1, p2, ncol = 2)
+dev.off()
+
+fitted_vals <- fitted(be5)
+resid_vals <- residuals(be5)
+model_outputs <- overlap_species_threats_no2 %>%
+  select(rowID) %>%  # Select only the join key
+  mutate(
+    fitted = fitted_vals,
+    residual = resid_vals
+  )
+joined_data <- overlap_species_threats_no2 %>%
+  left_join(model_outputs, by = "rowID")
+joined_data <- joined_data %>%
+  select(1,3,85,86,87)
+
 ```
 ## Plot coefficient estimates of best fitting model
 
@@ -503,7 +544,7 @@ comp3 <- coefficients_df %>%
                          "taxonomic_groupMolluscs" = "Molluscs",
                          "taxonomic_groupMosses" = "Mosses",
                          "scale(log(Total_area_km))" = "Total range area",
-                         "scale(Percent_SAR_caribou)" = "Percent range overlap",
+                         "scale(Percent_SAR_caribou)" = "Percentage range overlap",
                           "(Intercept)"="Intercept"))
 
 
@@ -518,38 +559,212 @@ desired_order5 <- c("Amphibians",
                     "Mosses",
                     "Arthropods",
                     "Total range area",
-                    "Percent range overlap",
+                    "Percentage range overlap",
                     "Intercept")
  
 # Reorder the factor levels in the data frame
 comp3$Variable <- factor(comp3$Variable, levels = desired_order5)
 
-ggplot(comp3,aes(x=Variable,y=Estimate)) +
+coef_all <- ggplot(comp3,aes(x=Variable,y=Estimate)) +
   geom_hline(yintercept = 0, col = "darkgrey") +  # Horizontal line at y = 0
   geom_point() +
   geom_errorbar(aes(ymin=Lower,ymax=Upper)) +
   coord_flip() +
-  labs(x= "Variable", y= "Model averaged coefficent estimate") +
+  labs(x= "Variable", y= "Coefficent estimate") +
   theme(
     axis.title.y = element_text(margin = margin(t = 0, r = 30, b = 0, l = 0)),
     panel.background = element_rect(fill = 'white', colour = 'darkgrey'),
     panel.grid.major = element_line(colour = 'white'),
-    text = element_text(size = 12),  # Increase overall font size
-    axis.title = element_text(size = 14),  # Axis titles
-    axis.text = element_text(size = 12))  # Axis text
+    text = element_text(size = 10),  # Increase overall font size
+    axis.title = element_text(size = 10),  # Axis titles
+    axis.text = element_text(size = 10))  # Axis text
+
+# Save the plot (pdf)
+ggsave(
+  filename = "./plots/coef_all.pdf",
+  plot = coef_all,
+  device = "pdf",   height = 10, width = 17,
+  units = "cm")
+# Save the plot (jpeg)
+ggsave(
+  filename = "./plots/coef_all.jpg",
+  plot = coef_all,
+  device = "jpg",   height = 10, width = 17,
+  units = "cm")
 ```
+
+
+## (no outliers) Model correlates of threat overlap with caribou
+
+Check if model outputs are the same without outliers!
+
+```{r models_o, echo=TRUE}
+
+# Run some models looking at descriptors of threat overlap with caribou
+
+# Delete outliers!!!
+overlap_species_threats_no2 <- overlap_species_threats_no2 %>%
+  filter(!speciesID %in% c('1502', '88', '431'))
+
+# Make reference level for the variable taxonomic group
+overlap_species_threats_no2$taxonomic_group <- factor(overlap_species_threats_no2$taxonomic_group, levels = c("Molluscs", "Arthropods", "Birds", "Lichens", "Amphibians","Mammals_(terrestrial)", "Mosses", "Reptiles", "Vascular_Plants"))
+overlap_species_threats_no2$taxonomic_group <- relevel(overlap_species_threats_no2$taxonomic_group, ref = "Birds")
+    
+be1o <- betareg(Trans_row_97_sim ~ scale(Percent_SAR_caribou), data=overlap_species_threats_no2, link = "logit")
+be2o <- betareg(Trans_row_97_sim ~ scale(log(Total_area_km)), data=overlap_species_threats_no2, link = "logit")
+be3o <- betareg(Trans_row_97_sim ~ taxonomic_group, data=overlap_species_threats_no2, link = "logit")
+be4o <- betareg(Trans_row_97_sim ~ 1, data=overlap_species_threats_no2, link = "logit")
+be5o <- betareg(Trans_row_97_sim ~ scale(Percent_SAR_caribou) + scale(log(Total_area_km)) + taxonomic_group,data=overlap_species_threats_no2, link = "logit")
+
+fmList5<-model.sel(be1o=be1o, be2o=be2o, be3o=be3o, be4o=be4o, be5o=be5o)
+fmList5
+summary(be5o)
+
+vif(be5o)
+```
+
+## (no outliers) Check model fit
+
+Look at residuals vs fitted and QQ plots
+```{r check fit_o, echo=TRUE}
+# Residuals vs Fitted plot
+p1 <- ggplot(data = NULL, aes(x = fitted(be5o), y = residuals(be5o))) +
+  geom_point() +
+  geom_hline(yintercept = 0, color = "red") +
+  labs(title = "a.) Residuals vs Fitted", x = "Fitted values", y = "Residuals") +
+    theme(
+    axis.title.y = element_text(margin = margin(t = 0, r = 30, b = 0, l = 0)),
+    panel.background = element_rect(fill = 'white', colour = 'darkgrey'),
+    panel.grid.major = element_line(colour = 'white'),
+    text = element_text(size = 6),  # Increase overall font size
+    axis.title = element_text(size = 6),  # Axis titles
+    axis.text = element_text(size = 6))  # Axis text
+
+# Q-Q plot
+p2 <- ggplot(data = NULL, aes(sample = residuals(be5o))) +
+  stat_qq() +
+  stat_qq_line(color = "blue") +
+  labs(title = "b.) Normal Q-Q Plot") +
+    theme(
+    axis.title.y = element_text(margin = margin(t = 0, r = 30, b = 0, l = 0)),
+    panel.background = element_rect(fill = 'white', colour = 'darkgrey'),
+    panel.grid.major = element_line(colour = 'white'),
+    text = element_text(size = 6),  # Increase overall font size
+    axis.title = element_text(size = 6),  # Axis titles
+    axis.text = element_text(size = 6))  # Axis text
+
+# Save plots as one figure
+jpeg("./plots/F1Io.jpeg",  width = 6000, height = 3000, res = 600)
+grid.arrange(p1, p2, ncol = 2)
+dev.off()
+
+```
+## (no outliers) Plot coefficient estimates of best fitting model (no outliers)
+
+Currently this is the estimates of be5
+```{r coef_o, echo=TRUE}
+
+# Plot model averaged coefficient estimates of best fitting model
+# Extract coefficients and standard errors from the model
+
+# Get summary object
+sum_be5o <- summary(be5o)
+
+# Extract coefficients for the mean model
+coef_table <- coef(sum_be5o)$mean  
+
+# Turn into a data frame
+coefficients_df <- as.data.frame(coef_table)
+coefficients_df$Variable <- rownames(coef_table)
+rownames(coefficients_df) <- NULL
+
+# Add confidence intervals
+
+coefficients_df <- coefficients_df %>%
+  mutate(
+    Lower = Estimate - 1.96 * `Std. Error`,
+    Upper = Estimate + 1.96 * `Std. Error`)
+
+# Rename categories
+comp3 <- coefficients_df %>%
+  mutate(Variable = as.character(Variable)) %>%
+  mutate(Variable = dplyr::recode(Variable, 
+                         "taxonomic_groupArthropods" = "Arthropods",
+                         "taxonomic_groupBirds" = "Birds",
+                         "taxonomic_groupLichens" = "Lichens",
+                         "taxonomic_groupAmphibians" = "Amphibians",
+                         "taxonomic_groupMammals_(terrestrial)" = "Mammals",
+                         "taxonomic_groupReptiles" = "Reptiles",
+                         "taxonomic_groupVascular_Plants" = "Vascular plants",
+                         "taxonomic_groupMolluscs" = "Molluscs",
+                         "taxonomic_groupMosses" = "Mosses",
+                         "scale(log(Total_area_km))" = "Total range area",
+                         "scale(Percent_SAR_caribou)" = "Percentage range overlap",
+                          "(Intercept)"="Intercept"))
+
+
+# Specify the desired order of categories
+desired_order5 <- c("Amphibians",
+                    "Molluscs",
+                    "Reptiles",
+                    "Mammals",
+                    "Vascular plants",
+                    "Lichens",
+                    "Birds",
+                    "Mosses",
+                    "Arthropods",
+                    "Total range area",
+                    "Percentage range overlap",
+                    "Intercept")
+ 
+# Reorder the factor levels in the data frame
+comp3$Variable <- factor(comp3$Variable, levels = desired_order5)
+
+coef_allo <- ggplot(comp3,aes(x=Variable,y=Estimate)) +
+  geom_hline(yintercept = 0, col = "darkgrey") +  # Horizontal line at y = 0
+  geom_point() +
+  geom_errorbar(aes(ymin=Lower,ymax=Upper)) +
+  coord_flip() +
+  labs(x= "Variable", y= "Coefficent estimate") +
+  labs(title = "c.) Coefficent estimates") +
+  theme(
+    axis.title.y = element_text(margin = margin(t = 0, r = 30, b = 0, l = 0)),
+    panel.background = element_rect(fill = 'white', colour = 'darkgrey'),
+    panel.grid.major = element_line(colour = 'white'),
+    text = element_text(size = 6),  # Increase overall font size
+    axis.title = element_text(size = 6),  # Axis titles
+    axis.text = element_text(size = 6))  # Axis text
+
+# Save the plot (pdf)
+ggsave(
+  filename = "./plots/coef_allo.pdf",
+  plot = coef_allo,
+  device = "pdf",   height = 10, width = 17,
+  units = "cm")
+# Save the plot (jpeg)
+ggsave(
+  filename = "./plots/coef_allo.jpg",
+  plot = coef_allo,
+  device = "jpg",   height = 10, width = 17,
+  units = "cm")
+
+# Save plots as one figure
+jpeg("./plots/allo.jpeg",  width = 5000, height = 3000, res = 600)
+grid.arrange(p1, p2, coef_allo, ncol = 2)
+dev.off()
+```
+
 
 ## Plot shared percentage of all possible threat columns and percentage of threat colums shared with caribou
 
  Split between taxonomic groups, the average percentage of all possible IUCN threat subcategories (indicated in dark blue, a percentage of 46 categories), and those listed as threats for caribou (indicated in light blue, a percentage of 25 categories). 
 
 ```{r shared_1s, echo=TRUE}
-shared_1s <- overlap_species_threats_no2 %>% select(3,12,18,19,21,22,23,26,27,28,30,31,35,37,40,44,46,
-                                           49,55,56,59,60,64,66,68,69)
+shared_1s <- overlap_species_threats_no2 %>% select(3,12,18,19,21,22,23,26,27,30,31,35,37,40,42, 44,46,49,55,56,59,60,64,66,68,69)
 shared_1s <- shared_1s %>%
   mutate(sum = rowSums(across(where(is.numeric), ~ . == 1)))
 shared_1s <- shared_1s %>%
-  mutate(percent = (sum/25)*100)
+  mutate(percent = (sum/24)*100)
 
 shared_1s_long <- shared_1s %>%
   group_by(taxonomic_group) %>%
@@ -564,12 +779,11 @@ shared_1s_long <- shared_1s %>%
 shared_1s_long <- shared_1s_long %>%
   mutate(group = "Threats shared with caribou")
 
-all_1s <- overlap_species_threats_no2 %>% select(3,12,17,18,19,21,22,23,24,26,27,28,30,31,32,33,35,36,37,38,40,41,42,44,45,46,
-                                                    48,49,50,51,52,53,55,56,57,58,59,60,62,63,64,66,67,68,69,70)
+all_1s <- overlap_species_threats_no2 %>% select(3,12,17,18,19,21,22,23,24,26,27,28,30,31,32,33,35,36,37,38,40,41,42,44,45,46,                                               48,49,50,51,52,53,55,56,57,58,59,60,62,63,64,66,67,68,69,70)
 all_1s <- all_1s %>%
   mutate(sum = rowSums(across(where(is.numeric), ~ . == 1)))
 all_1s <- all_1s %>%
-  mutate(percent = (sum/46)*100)
+  mutate(percent = (sum/44)*100)
 shared_alls_long <- all_1s %>%
   group_by(taxonomic_group) %>%
   summarise(
@@ -604,7 +818,7 @@ desired_order8 <- c("Molluscs",
 # Reorder the factor levels in the data frame
 both_1s$taxonomic_group <- factor(both_1s$taxonomic_group, levels = desired_order8)
 
-ggplot(both_1s, aes(x = taxonomic_group, y = avg_percentage, color = group)) +
+both1 <- ggplot(both_1s, aes(x = taxonomic_group, y = avg_percentage, color = group)) +
   geom_point(position = position_dodge(width = 0.5), size = 3) +
   geom_errorbar(aes(ymin = ci_lower, ymax = ci_upper),
                 position = position_dodge(width = 0.5), width = 0.2) +
@@ -613,10 +827,23 @@ ggplot(both_1s, aes(x = taxonomic_group, y = avg_percentage, color = group)) +
   scale_color_manual(values = c("darkblue", "cyan3")) +
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1),
-        text = element_text(size = 12),  # Increase overall font size
-        axis.title = element_text(size = 14),  # Axis titles
-        axis.text = element_text(size = 12),
-        legend.text = element_text(size = 12))  # Axis text)
+        text = element_text(size = 10),  # Increase overall font size
+        axis.title = element_text(size = 10),  # Axis titles
+        axis.text = element_text(size = 10),
+        legend.text = element_text(size = 10))  # Axis text)
+
+# Save the plot
+ggsave(
+  filename = "./plots/both1.pdf",
+  plot = both1,
+  device = "pdf",   height = 10, width = 17,
+  units = "cm")
+
+ggsave(
+  filename = "./plots/both1.jpg",
+  plot = both1,
+  device = "jpg",   height = 10, width = 17,
+  units = "cm")
 ```
 ## Plot SAR taxonomic group and caribou range overlap 
 
@@ -637,6 +864,10 @@ ex3 <- summary_data_overlap_start %>%
   filter(.[[73]] > 20) %>% nrow
 ex3
 
+summary_data_overlap_tax <- summary_data_overlap_start %>%
+  group_by(taxonomic_group) %>%
+  summarise(count = n())
+    
 # summarise the number and percent of SAR that exist and overlap with caribou
 summary_data_overlap <- summary_data_overlap_start %>%
   group_by(taxonomic_group) %>%
@@ -647,15 +878,15 @@ summary_data_overlap <- summary_data_overlap_start %>%
   pivot_longer(cols = c(total_species, overlap_nonzero, overlap_above_20), 
                names_to = "Category", values_to = "Count") %>%
   mutate(Percentage = case_when(
-    taxonomic_group == "Amphibians" ~ (Count / 24) * 100,
-    taxonomic_group == "Arthropods" ~ (Count / 57) * 100,
+    taxonomic_group == "Amphibians" ~ (Count / 25) * 100,
+    taxonomic_group == "Arthropods" ~ (Count / 59) * 100,
     taxonomic_group == "Birds" ~ (Count / 84) * 100,
     taxonomic_group == "Lichens" ~ (Count / 18) * 100,
     taxonomic_group == "Mammals_(terrestrial)" ~ (Count / 28) * 100,
     taxonomic_group == "Molluscs" ~ (Count / 12) * 100,
     taxonomic_group == "Mosses" ~ (Count / 16) * 100,
-    taxonomic_group == "Reptiles" ~ (Count / 37) * 100,
-    taxonomic_group == "Vascular_Plants" ~ (Count / 185) * 100,
+    taxonomic_group == "Reptiles" ~ (Count / 38) * 100,
+    taxonomic_group == "Vascular_Plants" ~ (Count / 186) * 100,
     TRUE ~ NA_real_  # Default case (if needed)
   ))
 
@@ -672,7 +903,7 @@ desired_order4 <- c("Vascular plants", "Birds", "Arthropods", "Reptiles", "Amphi
 summary_data_overlap$taxonomic_group <- factor(summary_data_overlap$taxonomic_group, levels = desired_order4)# as no spatial data for
 
 # Create grouped bar plot of number of species
-ggplot(summary_data_overlap, aes(x = taxonomic_group, y = Count, fill = Category)) +
+count_species_taxonomic_group <- ggplot(summary_data_overlap, aes(x = taxonomic_group, y = Count, fill = Category)) +
   geom_bar(stat = "identity", position = "dodge") +
   labs(x = "Taxonomic group",
        y = "Number of species",
@@ -685,10 +916,17 @@ ggplot(summary_data_overlap, aes(x = taxonomic_group, y = Count, fill = Category
     axis.text.x = element_text(angle = 45, hjust = 1),
     panel.background = element_rect(fill = 'white', colour = 'darkgrey'),
     panel.grid.major = element_line(colour = 'white'),
-    text = element_text(size = 12),  # Increase overall font size
-    axis.title = element_text(size = 14),  # Axis titles
-    axis.text = element_text(size = 12),  # Axis text
+    text = element_text(size = 10),  # Increase overall font size
+    axis.title = element_text(size = 10),  # Axis titles
+    axis.text = element_text(size = 10),  # Axis text
   )
+
+# Save the plot
+ggsave(
+  filename = "./plots/count_species_taxonomic_group.pdf",
+  plot = count_species_taxonomic_group,
+  device = "pdf",   height = 10, width = 17,
+  units = "cm")
 ```
 
 # Plot % species with range overlap with caribou/taxonomic group
@@ -698,7 +936,7 @@ ggplot(summary_data_overlap, aes(x = taxonomic_group, y = Count, fill = Category
 summary_data_overlap_percent <- summary_data_overlap %>%
   filter(Category != "total_species")
 
-ggplot(summary_data_overlap_percent, aes(x = taxonomic_group, y = Percentage, fill = Category)) +
+percentage_species_taxonomic_group <- ggplot(summary_data_overlap_percent, aes(x = taxonomic_group, y = Percentage, fill = Category)) +
   geom_bar(stat = "identity", position = "dodge", width= 0.6) +
   labs(x = "Taxonomic group",
        y = "Percentage of species/taxonomic group",
@@ -712,10 +950,17 @@ ggplot(summary_data_overlap_percent, aes(x = taxonomic_group, y = Percentage, fi
     axis.text.x = element_text(angle = 45, hjust = 1),
     panel.background = element_rect(fill = 'white', colour = 'darkgrey'),
     panel.grid.major = element_line(colour = 'white'),
-    text = element_text(size = 12),  # Increase overall font size
-    axis.title = element_text(size = 14),  # Axis titles
-    axis.text = element_text(size = 12),  # Axis text
+    text = element_text(size = 10),  # Increase overall font size
+    axis.title = element_text(size = 10),  # Axis titles
+    axis.text = element_text(size = 10),  # Axis text
   )
+
+# Save the plot
+ggsave(
+  filename = "./plots/percentage_species_taxonomic_group.pdf",
+  plot = percentage_species_taxonomic_group,
+  device = "pdf",   height = 10, width = 17,
+  units = "cm")
 
 ```
 
@@ -738,11 +983,11 @@ Threats_both <- summed_threats_over %>%
 
 ## Calculate proportions of all species
 Threats_both <- Threats_both %>%
-  mutate(Proportion_all = (Summed_species_all/616)*100)
+  mutate(Proportion_all = (Summed_species_all/618)*100)
 
 ## Calculate proportions of caribou overlapping species
 Threats_both <- Threats_both %>%
-  mutate(Proportion_cara = (Summed_species_cara/97)*100)
+  mutate(Proportion_cara = (Summed_species_cara/109)*100)
 
 Threats_both2 <- Threats_both %>% 
   pivot_longer(cols = starts_with("Proportion"), names_to = "type", values_to = "Proportion")
@@ -786,7 +1031,7 @@ custom_colors <- c(
   'Proportion_cara' = 'cadetblue2'  # Light blue color for 'woodland caribou'
 )
 
-ggplot(Threats_both2, aes(x = Threat, y = Proportion, fill=type, width=0.45)) +
+threats_summary <- ggplot(Threats_both2, aes(x = Threat, y = Proportion, fill=type, width=0.45)) +
   geom_bar(stat = "identity", position='dodge') +
   labs(x = "Threat",
        y = "Proportion of species") +
@@ -799,31 +1044,24 @@ ggplot(Threats_both2, aes(x = Threat, y = Proportion, fill=type, width=0.45)) +
     panel.background = element_rect(fill = 'white', colour = 'darkgrey'),
     panel.grid.major = element_line(colour = 'white'),
     text = element_text(size = 10),  # Increase overall font size
-    axis.title = element_text(size = 12),  # Axis titles
+    axis.title = element_text(size = 10),  # Axis titles
     axis.text = element_text(size = 10),  # Axis text
     legend.position = "none"
   )
 
-# Create  bar plot for threats to all SAR
-threats_all_SAR <- Threats_both2 %>%
-  filter(type == "Proportion_all")
+# Save the plot
+ggsave(
+  filename = "./plots/threats_summary.pdf",
+  plot = threats_summary,
+  device = "pdf",   height = 14, width = 17,
+  units = "cm")
 
-ggplot(threats_all_SAR, aes(x = Threat, y = Proportion, width=0.45)) +
-  geom_bar(stat = "identity", fill = "deepskyblue4" ) +
-  labs(x = "Threat",
-       y = "Proportion of species") +
-  theme_minimal() +
-  ylim(0, 100) +
-  theme(
-    axis.title.y = element_text(margin = margin(t = 0, r = 50, b = 0, l = 0)),
-    axis.text.x = element_text(angle = 65, hjust = 1, margin = margin(t = 0, r = 0, b = 20, l = 0)),
-    panel.background = element_rect(fill = 'white', colour = 'darkgrey'),
-    panel.grid.major = element_line(colour = 'white'),
-    text = element_text(size = 10),  # Increase overall font size
-    axis.title = element_text(size = 12),  # Axis titles
-    axis.text = element_text(size = 10),  # Axis text
-    legend.position = "none"
-  )
+ggsave(
+  filename = "./plots/threats_summary.jpg",
+  plot = threats_summary,
+  device = "jpg",   height = 14, width = 17,
+  units = "cm")
+
 ```
 
 ## Graph the number of species with values of the jaccard index
@@ -922,7 +1160,7 @@ Including a heat map for those categories shard with caribou, and a seperate one
 
 heat2 <- overlap_species_threats_no2  # Replace with actual dataset
 ###Create subset with just sub categories of shared threats with caribou
-heat_subset_data_over2 <- heat2 %>% select(12,18,19,21,22,23,26,27,28,30,31,35,37,40,44,46,
+heat_subset_data_over2 <- heat2 %>% select(12,18,19,21,22,23,26,27,30,31,35,37,40,42,44,46,
                                          49,55,56,59,60,64,66,68,69)
 # Assuming the dataset has 'Taxonomic_Group' and binary trait columns
 taxonomic_col2 <- "taxonomic_group"  # Adjust as needed
@@ -946,7 +1184,7 @@ df_long2 <- df_long2 %>%
                                "X11_5_other_impacts" = "11.5 Other impacts of climate change",
                                "X1_1_house_urban" = "1.1 Housing and urban development",
                                "X1_2_comm_industrial" = "1.2 Commercial and industrial development",
-                               "X1_3_tourisim_rec" = "1.2 Tourisim and recreational development",
+                               "X1_3_tourisim_rec" = "1.3 Tourisim and recreational development",
                                "X2_1_crops" = "2.1 Annual and perennial crops",
                                "X2_2_wood_planta" = "2.2 Wood and pulp plantations",
                                "X2_3_livestock_farm" = "2.3 Livestock farming",
@@ -989,13 +1227,13 @@ df_long2 <- df_long2 %>%
   mutate(taxonomic_group = dplyr::recode(taxonomic_group, "Molluscs" = "Terrestrial molluscs"))
 
 df_long2 <- df_long2 %>%
-  mutate(taxonomic_group = fct_relevel(taxonomic_group, "Terrestrial molluscs", "Amphibians", "Terrestrial mammals", "Reptiles","Birds","Vascular plants", "Lichens","Mosses","Arthropods"))
+  mutate(taxonomic_group = fct_relevel(taxonomic_group, "Amphibians", "Terrestrial molluscs", "Reptiles", "Terrestrial mammals","Birds","Vascular plants", "Lichens","Mosses","Arthropods"))
 
 # Specify the desired order of categories
 desired_order6 <- c(
   "1.1 Housing and urban development",
   "1.2 Commercial and industrial development",
-  "1.2 Tourisim and recreational development",
+  "1.3 Tourisim and recreational development",
   "2.1 Annual and perennial crops",
   "2.2 Wood and pulp plantations",
   "2.3 Livestock farming",
@@ -1041,19 +1279,29 @@ desired_order6 <- c(
 # Reorder the factor levels in the data frame
 df_long2$Trait <- factor(df_long2$Trait, levels = desired_order6)
 
-ggplot(df_long2, aes(x = Trait, y = taxonomic_group, fill = Proportion)) +
+heat_caribou <- ggplot(df_long2, aes(x = Trait, y = taxonomic_group, fill = Proportion)) +
   geom_tile() +
   scale_fill_gradient(low = "white", high = "blue", name = "Proportion") +
   theme_minimal() +
   labs(x = "Threat", y = "Taxonomic Group") + 
   theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 8),
         axis.text.y = element_text(size = 8),
-        axis.title = element_text(size = 8))# Axis titles
+        axis.title = element_text(size = 8),
+        legend.text = element_text(size = 7),
+        legend.title = element_text(size = 8))
+
+# Save the plot
+ggsave(
+  filename = "./plots/heat_caribou.pdf",
+  plot = heat_caribou ,
+  device = "pdf",   height = 10, width = 17,
+  units = "cm")
+
 #######################
-### Make a heatmap for subcategories that don't overlap with cariobu
+### Make a heatmap for subcategories that don't overlap with caribou
 heat3 <- overlap_species_threats_no2  # Replace with actual dataset
-###Create subset with just sub categories of shared threats with caribou
-heat_subset_data_over3 <- heat3 %>% select(12,17,24,32,33,36,38,41,42,45,48,50,51,52,53,57,58,62,63,67,70)
+###Create subset with just sub categories of non-shared threats with caribou
+heat_subset_data_over3 <- heat3 %>% select(12,17,24,32,33,36,38,41,48,45,50,51,52,53,57,58,62,63,67,70)
 # Assuming the dataset has 'Taxonomic_Group' and binary trait columns
 taxonomic_col3 <- "taxonomic_group"  # Adjust as needed
 trait_cols3 <- setdiff(names(heat_subset_data_over3), taxonomic_col3)
@@ -1119,7 +1367,7 @@ df_long3 <- df_long3 %>%
   mutate(taxonomic_group = dplyr::recode(taxonomic_group, "Molluscs" = "Terrestrial molluscs"))
 
 df_long3 <- df_long3 %>%
-  mutate(taxonomic_group = fct_relevel(taxonomic_group, "Terrestrial molluscs", "Amphibians", "Terrestrial mammals", "Reptiles","Birds","Vascular plants", "Lichens","Mosses","Arthropods"))
+  mutate(taxonomic_group = fct_relevel(taxonomic_group, "Amphibians", "Terrestrial molluscs", "Reptiles", "Terrestrial mammals","Birds","Vascular plants", "Lichens","Mosses","Arthropods"))
 
 # Specify the desired order of categories
 desired_order7 <- c(
@@ -1171,14 +1419,23 @@ desired_order7 <- c(
 # Reorder the factor levels in the data frame
 df_long3$Trait <- factor(df_long3$Trait, levels = desired_order7)
 
-ggplot(df_long3, aes(x = Trait, y = taxonomic_group, fill = Proportion)) +
+heat_no_caribou <- ggplot(df_long3, aes(x = Trait, y = taxonomic_group, fill = Proportion)) +
   geom_tile() +
   scale_fill_gradient(low = "white", high = "black", name = "Proportion") +
   theme_minimal() +
   labs(x = "Threat", y = "Taxonomic Group") + 
   theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 8),
         axis.text.y = element_text(size = 8),
-        axis.title = element_text(size = 8))# Axis titles
+        axis.title = element_text(size = 8),
+        legend.text = element_text(size = 7),
+        legend.title = element_text(size = 8))
+
+# Save the plot
+ggsave(
+  filename = "./plots/heat_no_caribou.pdf",
+  plot = heat_no_caribou,
+  device = "pdf",   height = 10, width = 17,
+  units = "cm")
 
 
 ```
