@@ -1014,8 +1014,8 @@ be3o &lt;- betareg(Trans_row_97_sim ~ taxonomic_group, data=overlap_species_thre
 be4o &lt;- betareg(Trans_row_97_sim ~ 1, data=overlap_species_threats_no2, link = &quot;logit&quot;)
 be5o &lt;- betareg(Trans_row_97_sim ~ scale(Percent_SAR_caribou) + scale(log(Total_area_km)) + taxonomic_group,data=overlap_species_threats_no2, link = &quot;logit&quot;)
 
-fmList5&lt;-model.sel(be1o=be1o, be2o=be2o, be3o=be3o, be4o=be4o, be5o=be5o)
-fmList5</code></pre>
+fmList5o&lt;-model.sel(be1o=be1o, be2o=be2o, be3o=be3o, be4o=be4o, be5o=be5o)
+fmList5o</code></pre>
 <pre><code>## Model selection table 
 ##         (Int) scl(Prc_SAR_crb) scl(log(Ttl_are_km)) txn_grp df logLik   AICc
 ## be5o -0.19410           0.1925               0.2076       + 12 73.236 -119.1
