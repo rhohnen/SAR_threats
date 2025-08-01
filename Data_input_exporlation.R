@@ -384,14 +384,14 @@ overlap_species_threats_no2$taxonomic_group <- relevel(overlap_species_threats_n
 n1 <- lm(row_97_sim~ 1, data=overlap_species_threats_no2)
 n2 <- lm(row_97_sim~ scale(Percent_SAR_caribou), data=overlap_species_threats_no2)
 n3 <- lm(row_97_sim~ scale(log(Total_area_km)), data=overlap_species_threats_no2)
-n4 <- lm(row_97_sim~ sara_status, data=overlap_species_threats_no2)
-n5 <- lm(row_97_sim~ taxonomic_group, data=overlap_species_threats_no2)
-n6 <- lm(row_97_sim~ scale(Percent_SAR_caribou) + scale(log(Total_area_km)) + sara_status + taxonomic_group, data=overlap_species_threats_no2)
+n4 <- lm(row_97_sim~ taxonomic_group, data=overlap_species_threats_no2)
+n5 <- lm(row_97_sim~ scale(Percent_SAR_caribou) + scale(log(Total_area_km)) + taxonomic_group, data=overlap_species_threats_no2)
 
+summary(n5)
 vif(n6)
 
-fmList<-model.sel(n1=n1,n2=n2,n3=n3,n4=n4,n5=n5,n6=n6)
-fmList
+fmListn<-model.sel(n1=n1,n2=n2,n3=n3,n4=n4,n5=n5)
+fmListn
 
 # Other options
 a1 <- lm(logit(row_97_sim)~ scale(Percent_SAR_caribou), data=overlap_species_threats_no2)
@@ -436,7 +436,7 @@ summary(be5)
 # summary(modelav)
 
 # Look into variance inflation factors
-vif(be5)
+vif(n5)
 df_resid <- be5$df.residual
 df_resid
 
@@ -448,21 +448,21 @@ model_qb
 summary(model_qb)
 
 # Proportion of deviance explained
-null_dev <- summary(be5)$null.deviance
-resid_dev <- summary(be5)$deviance
+null_dev <- summary(n5)$null.deviance
+resid_dev <- summary(n5)$deviance
 prop_deviance_explained <- (null_dev - resid_dev) / null_dev
 cat("Proportion of Deviance Explained: ", prop_deviance_explained, "\n")
 
 # Dispersion parameter
-dispersion <- resid_dev / df.residual(be5)
+dispersion <- resid_dev / df.residual(n5)
 cat("Dispersion Parameter: ", dispersion, "\n")
 
 # Residual Diagnostics
 par(mfrow = c(1, 2)) # Plot side by side
-plot(fitted(be5), residuals(be5), main = "Residuals vs Fitted")
+plot(fitted(n5), residuals(n5), main = "Residuals vs Fitted")
 abline(h = 0, col = "red")
-qqnorm(residuals(be5))
-qqline(residuals(be5), col = "blue")
+qqnorm(residuals(n5))
+qqline(residuals(n5), col = "blue")
 hist(overlap_species_threats_no2$row_97_sim, breaks = 20, main = "Distribution of Y")
 
 ###############################################################################
