@@ -362,7 +362,7 @@ display: none;
 at risk’ in Canada</h2>
 <p>Read in and clean data</p>
 <pre class="r"><code># Read in dataset
-threats &lt;-read.csv(&#39;SAR_overlap_threats_NE_species_input_final_noNA_caribou_crosschecked_new_area_easternmigtorgat.csv&#39;)
+threats &lt;-read.csv(&#39;SAR_overlap_threats_NE_species_input_final_3.csv&#39;)
 
 # Clean dataset
 # Replace spaces with underscores in the taxonomic_group column
@@ -915,7 +915,7 @@ joined_data &lt;- joined_data %&gt;%
 <pre class="r"><code># Plot model averaged coefficient estimates of best fitting model
 # Extract coefficients and standard errors from the model
 
-# Get summary object
+# Get  summary object
 sum_be5 &lt;- summary(be5)
 
 # Extract coefficients for the mean model

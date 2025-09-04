@@ -25,7 +25,7 @@ library(betareg)
 library(vegan)
 library(dendextend)
 library(gridExtra)
-
+ 
 ```
 
 ## Exploring threat overlap between woodland caribou and other 'species at risk' in Canada
@@ -33,7 +33,7 @@ library(gridExtra)
 Read in and clean data
 ```{r data_processing, echo=TRUE}
 # Read in dataset
-threats <-read.csv('SAR_overlap_threats_NE_species_input_final_noNA_caribou_crosschecked_new_area_easternmigtorgat.csv')
+threats <-read.csv('SAR_overlap_threats_NE_species_input_final_3.csv')
 
 # Clean dataset
 # Replace spaces with underscores in the taxonomic_group column
@@ -512,7 +512,7 @@ Currently this is the estimates of be5
 # Plot model averaged coefficient estimates of best fitting model
 # Extract coefficients and standard errors from the model
 
-# Get summary object
+# Get  summary object
 sum_be5 <- summary(be5)
 
 # Extract coefficients for the mean model
@@ -616,8 +616,8 @@ be3o <- betareg(Trans_row_97_sim ~ taxonomic_group, data=overlap_species_threats
 be4o <- betareg(Trans_row_97_sim ~ 1, data=overlap_species_threats_no2, link = "logit")
 be5o <- betareg(Trans_row_97_sim ~ scale(Percent_SAR_caribou) + scale(log(Total_area_km)) + taxonomic_group,data=overlap_species_threats_no2, link = "logit")
 
-fmList5<-model.sel(be1o=be1o, be2o=be2o, be3o=be3o, be4o=be4o, be5o=be5o)
-fmList5
+fmList5o<-model.sel(be1o=be1o, be2o=be2o, be3o=be3o, be4o=be4o, be5o=be5o)
+fmList5o
 summary(be5o)
 
 vif(be5o)
