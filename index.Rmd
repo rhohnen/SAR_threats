@@ -1,6 +1,6 @@
 ---
 title: "index"
-author: "Rosie Hohnen"
+author: "XXX"
 date: "2024-12-04"
 output: html_document
 ---
@@ -107,8 +107,8 @@ caribou_row2$year_published <- "NA"
 caribou_row2$date_last_access <- "NA"
 caribou_row2$Percent_SAR_caribou <- "100"
 caribou_row2$Percent_caribou_SAR <- "100"
-caribou_row2$Total_area_km <- "3459299.35" # needs changing wne new areas calculated
-caribou_row2$Intersect_caribou_km <- "3459299.35" # needs changing wne new areas calculated
+caribou_row2$Total_area_km <- "4325842.66" 
+caribou_row2$Intersect_caribou_km <- "4325842.66" 
 caribou_row2$year_published <- as.integer(caribou_row2$year_published)
 
 # Bind to existing data set
@@ -235,19 +235,15 @@ overlap_species_threats_no2 <- overlap_species_threats_no2 %>%
 jaccard_0.63 <- overlap_species_threats_no2 %>%
   filter(row_97_sim > 0.63)
 
-# Delete threat columns
-jaccard_0.63 <- jaccard_0.63 %>%
-  select(-c(16,17,18,19,20,21,22,23,24,25, 26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,
-            41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,
-            67,68,69,70))
-
 # find 10ish species most dissimilar
 jaccard_0.30 <- overlap_species_threats_no2 %>%
   filter(row_97_sim < 0.28)
 
-# Delete threat columns
-jaccard_0.30 <- jaccard_0.30 %>%
-  select(-c(15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66, 67,68,69))
+comparison <- jaccard_0.63 %>%
+  bind_rows(jaccard_0.30) %>%
+  bind_rows(caribou_row2)
+
+write.csv(comparison, "comparison_jaccard.csv")
 ```
 
 ## Calculate the number of columns in common between caribou and other species
@@ -921,11 +917,39 @@ count_species_taxonomic_group <- ggplot(summary_data_overlap, aes(x = taxonomic_
     axis.text = element_text(size = 10),  # Axis text
   )
 
+# Create grouped bar plot of number of species
+count_species_taxonomic_group_flip <- ggplot(summary_data_overlap, aes(x = taxonomic_group, y = Count, fill = Category)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  coord_flip() +  # Correct function to flip axes
+  labs(x = "Taxonomic group",
+       y = "Number of species",
+       fill = "Metric") +
+  scale_fill_manual(values = c("snow3", "mediumpurple1", "mediumpurple4"),
+                    labels = c("SAR overlapping with caribou >20%", "SAR overlapping with caribou", "SAR")) +
+  theme_minimal() +
+  theme(
+    axis.title.y = element_text(margin = margin(t = 0, r = 30, b = 0, l = 0)),
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    panel.background = element_rect(fill = 'white', colour = 'darkgrey'),
+    panel.grid.major = element_line(colour = 'white'),
+    text = element_text(size = 10),  # Increase overall font size
+    axis.title = element_text(size = 10),  # Axis titles
+    axis.text = element_text(size = 10),  # Axis text
+  )
+
+
+
 # Save the plot
 ggsave(
   filename = "./plots/count_species_taxonomic_group.pdf",
   plot = count_species_taxonomic_group,
   device = "pdf",   height = 10, width = 17,
+  units = "cm")
+
+ggsave(
+  filename = "./plots/count_species_taxonomic_group.jpg",
+  plot = count_species_taxonomic_group_flip,
+  device = "jpg",   height = 10, width = 17,
   units = "cm")
 ```
 
@@ -941,7 +965,7 @@ percentage_species_taxonomic_group <- ggplot(summary_data_overlap_percent, aes(x
   labs(x = "Taxonomic group",
        y = "Percentage of species/taxonomic group",
        fill = "Metric") +
-  scale_fill_manual(values = c("cadetblue2", "cyan3"),
+  scale_fill_manual(values = c("purple4", "mediumpurple1"),
                     labels = c("SAR overlapping with caribou >20%", "SAR overlapping with caribou", "SAR")) +
   theme_minimal() +
   ylim(0, 50) +
@@ -955,6 +979,30 @@ percentage_species_taxonomic_group <- ggplot(summary_data_overlap_percent, aes(x
     axis.text = element_text(size = 10),  # Axis text
   )
 
+percentage_species_taxonomic_group_flipped <- ggplot(summary_data_overlap_percent, aes(x = taxonomic_group, y = Percentage, fill = Category)) +
+  geom_bar(stat = "identity", position = "dodge", width = 0.6) +
+  coord_flip() +  # Correct function to flip axes
+  labs(
+    x = "Taxonomic group",
+    y = "Percentage of species/taxonomic group",
+    fill = "Metric"
+  ) +
+  scale_fill_manual(
+    values = c("purple4", "mediumpurple1"),
+    labels = c("SAR overlapping with caribou >20%", "SAR overlapping with caribou")
+  ) +
+  theme_minimal() +
+  ylim(0, 50) +
+  theme(
+    axis.title.y = element_text(margin = margin(t = 0, r = 30, b = 0, l = 0)),
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    panel.background = element_rect(fill = 'white', colour = 'darkgrey'),
+    panel.grid.major = element_line(colour = 'white'),
+    text = element_text(size = 10),
+    axis.title = element_text(size = 10),
+    axis.text = element_text(size = 10)
+  )
+
 # Save the plot
 ggsave(
   filename = "./plots/percentage_species_taxonomic_group.pdf",
@@ -962,6 +1010,12 @@ ggsave(
   device = "pdf",   height = 10, width = 17,
   units = "cm")
 
+# Save the plot
+ggsave(
+  filename = "./plots/percentage_species_taxonomic_group_flip.jpg",
+  plot = percentage_species_taxonomic_group_flipped,
+  device = "jpg",   height = 10, width = 17,
+  units = "cm")
 ```
 
 ## Plot common threats to all SAR and SAR within caribou range
