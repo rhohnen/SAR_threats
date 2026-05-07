@@ -87,6 +87,8 @@ all_species_threats_no2 <- all_species_threats_no2 %>%
 ## Create row for combined mountain, boreal, eastern migratory and Torgat mountain, Atlantic Gaspesie caribou, Newfoundland threats
 caribous <- all_species_threats_no2 %>% filter(rowID %in% c(256,264,2136,2137,2162,2163,2167))
 
+write.csv(caribous, "caribous.csv")
+
 # Extract columns 1-14 from row 264 (keep as a single row)
 boreal_row_start <- caribous %>% filter(rowID == 264) %>% select(1:15)
 
@@ -853,12 +855,20 @@ summary_data_overlap_start <- all_species_threats_no2 %>%
 # Calculate the number of species of the 461 we have spatial data for with overlap values of >0
 ex2 <- summary_data_overlap_start %>%
   filter(.[[73]] > 0) %>% nrow
-ex2
-
-# Calculate the number of species of the 461 we have spatial data for with overlap values of >20
 ex3 <- summary_data_overlap_start %>%
   filter(.[[73]] > 20) %>% nrow
+ex4 <- summary_data_overlap_start %>%
+  filter(.[[73]] > 40) %>% nrow
+ex6 <- summary_data_overlap_start %>%
+  filter(.[[73]] > 60) %>% nrow
+ex8 <- summary_data_overlap_start %>%
+  filter(.[[73]] > 80) %>% nrow
+ex2
 ex3
+ex4
+ex6
+ex8
+
 
 summary_data_overlap_tax <- summary_data_overlap_start %>%
   group_by(taxonomic_group) %>%
@@ -870,9 +880,12 @@ summary_data_overlap <- summary_data_overlap_start %>%
   summarise(
     total_species = n(),
     overlap_nonzero = sum(Percent_SAR_caribou > 0, na.rm = TRUE),
-    overlap_above_20 = sum(Percent_SAR_caribou > 20, na.rm = TRUE)) %>%
-  pivot_longer(cols = c(total_species, overlap_nonzero, overlap_above_20), 
-               names_to = "Category", values_to = "Count") %>%
+    overlap_above_20 = sum(Percent_SAR_caribou > 20, na.rm = TRUE),
+  overlap_above_40 = sum(Percent_SAR_caribou > 40, na.rm = TRUE),
+  overlap_above_60 = sum(Percent_SAR_caribou > 60, na.rm = TRUE),
+  overlap_above_80 = sum(Percent_SAR_caribou > 80, na.rm = TRUE)) %>%
+  pivot_longer(cols = c(total_species, overlap_nonzero, overlap_above_20, overlap_above_40, overlap_above_60, overlap_above_80), 
+  names_to = "Category", values_to = "Count") %>%
   mutate(Percentage = case_when(
     taxonomic_group == "Amphibians" ~ (Count / 25) * 100,
     taxonomic_group == "Arthropods" ~ (Count / 59) * 100,
@@ -904,8 +917,8 @@ count_species_taxonomic_group <- ggplot(summary_data_overlap, aes(x = taxonomic_
   labs(x = "Taxonomic group",
        y = "Number of species",
        fill = "Metric") +
-  scale_fill_manual(values = c("cadetblue2", "cyan3", "dodgerblue"),
-                    labels = c("SAR overlapping with caribou >20%", "SAR overlapping with caribou", "SAR")) +
+  scale_fill_manual(values = c("cadetblue2", "cyan3", "dodgerblue", "darkblue", "purple","orchid"),
+                    labels = c("SAR overlapping with caribou >80%","SAR overlapping with caribou >60%","SAR overlapping with caribou >40%","SAR overlapping with caribou >20%", "SAR overlapping with caribou", "SAR")) +
   theme_minimal() +
   theme(
     axis.title.y = element_text(margin = margin(t = 0, r = 30, b = 0, l = 0)),
@@ -924,8 +937,8 @@ count_species_taxonomic_group_flip <- ggplot(summary_data_overlap, aes(x = taxon
   labs(x = "Taxonomic group",
        y = "Number of species",
        fill = "Metric") +
-  scale_fill_manual(values = c("snow3", "mediumpurple1", "mediumpurple4"),
-                    labels = c("SAR overlapping with caribou >20%", "SAR overlapping with caribou", "SAR")) +
+  scale_fill_manual(values = c("cadetblue2", "cyan3", "dodgerblue", "darkblue", "purple","orchid"),
+                    labels = c("SAR overlapping with caribou >80%","SAR overlapping with caribou >60%","SAR overlapping with caribou >40%","SAR overlapping with caribou >20%", "SAR overlapping with caribou", "SAR")) +
   theme_minimal() +
   theme(
     axis.title.y = element_text(margin = margin(t = 0, r = 30, b = 0, l = 0)),
