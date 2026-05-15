@@ -25,6 +25,7 @@ library(betareg)
 library(vegan)
 library(dendextend)
 library(gridExtra)
+library(patchwork)
  
 ```
 
@@ -912,76 +913,58 @@ desired_order4 <- c("Vascular plants", "Birds", "Arthropods", "Reptiles", "Amphi
 summary_data_overlap$taxonomic_group <- factor(summary_data_overlap$taxonomic_group, levels = desired_order4)# as no spatial data for
 
 # Create grouped bar plot of number of species
-count_species_taxonomic_group <- ggplot(summary_data_overlap, aes(x = taxonomic_group, y = Count, fill = Category)) +
-  geom_bar(stat = "identity", position = "dodge") +
-  labs(x = "Taxonomic group",
-       y = "Number of species",
-       fill = "Metric") +
-  scale_fill_manual(values = c("cadetblue2", "cyan3", "dodgerblue", "darkblue", "purple","orchid"),
-                    labels = c("SAR overlapping with caribou >80%","SAR overlapping with caribou >60%","SAR overlapping with caribou >40%","SAR overlapping with caribou >20%", "SAR overlapping with caribou", "SAR")) +
-  theme_minimal() +
-  theme(
-    axis.title.y = element_text(margin = margin(t = 0, r = 30, b = 0, l = 0)),
-    axis.text.x = element_text(angle = 45, hjust = 1),
-    panel.background = element_rect(fill = 'white', colour = 'darkgrey'),
-    panel.grid.major = element_line(colour = 'white'),
-    text = element_text(size = 10),  # Increase overall font size
-    axis.title = element_text(size = 10),  # Axis titles
-    axis.text = element_text(size = 10),  # Axis text
-  )
-
-# Create grouped bar plot of number of species
-count_species_taxonomic_group_flip <- ggplot(summary_data_overlap, aes(x = taxonomic_group, y = Count, fill = Category)) +
-  geom_bar(stat = "identity", position = "dodge") +
-  coord_flip() +  # Correct function to flip axes
-  labs(x = "Taxonomic group",
-       y = "Number of species",
-       fill = "Metric") +
-  scale_fill_manual(values = c("cadetblue2", "cyan3", "dodgerblue", "darkblue", "purple","orchid"),
-                    labels = c("SAR overlapping with caribou >80%","SAR overlapping with caribou >60%","SAR overlapping with caribou >40%","SAR overlapping with caribou >20%", "SAR overlapping with caribou", "SAR")) +
-  theme_minimal() +
-  theme(
-    axis.title.y = element_text(margin = margin(t = 0, r = 30, b = 0, l = 0)),
-    axis.text.x = element_text(angle = 45, hjust = 1),
-    panel.background = element_rect(fill = 'white', colour = 'darkgrey'),
-    panel.grid.major = element_line(colour = 'white'),
-    text = element_text(size = 10),  # Increase overall font size
-    axis.title = element_text(size = 10),  # Axis titles
-    axis.text = element_text(size = 10),  # Axis text
-  )
-
-
-
-# Save the plot
-ggsave(
-  filename = "./plots/count_species_taxonomic_group.pdf",
-  plot = count_species_taxonomic_group,
-  device = "pdf",   height = 10, width = 17,
-  units = "cm")
-
-ggsave(
-  filename = "./plots/count_species_taxonomic_group.jpg",
-  plot = count_species_taxonomic_group_flip,
-  device = "jpg",   height = 10, width = 17,
-  units = "cm")
-```
-
-# Plot % species with range overlap with caribou/taxonomic group
-
-```{r Range_over2, echo=TRUE}
-# Filter out 100 percentages
-summary_data_overlap_percent <- summary_data_overlap %>%
+summary_data_overlap_filtered <- summary_data_overlap %>%
   filter(Category != "total_species")
 
-percentage_species_taxonomic_group <- ggplot(summary_data_overlap_percent, aes(x = taxonomic_group, y = Percentage, fill = Category)) +
-  geom_bar(stat = "identity", position = "dodge", width= 0.6) +
-  labs(x = "Taxonomic group",
-       y = "Percentage of species/taxonomic group",
-       fill = "Metric") +
-  scale_fill_manual(values = c("purple4", "mediumpurple1"),
-                    labels = c("SAR overlapping with caribou >20%", "SAR overlapping with caribou", "SAR")) +
+# Define category order
+category_order <- c(
+  "total_species",
+  "overlap_nonzero",
+  "overlap_above_20",
+  "overlap_above_40",
+  "overlap_above_60",
+  "overlap_above_80")
+
+summary_data_overlap$Category <- factor(
+  summary_data_overlap$Category,
+  levels = category_order)
+
+summary_data_overlap_filtered$Category <- factor(
+  summary_data_overlap_filtered$Category,
+  levels = category_order)
+
+# Plot number of species
+count_species_taxonomic_group <- ggplot(summary_data_overlap_filtered, aes(x = taxonomic_group, y = Percentage, fill = Category)) +
+  geom_bar(stat = "identity", position = "dodge") +
+labs(
+  x = NULL,
+  y = "Percentage of species",
+  fill = "Metric"
+  ) + 
+  scale_fill_manual(values = c("purple","darkblue","dodgerblue","cyan3","cadetblue2"), 
+  guide = "none") +
   theme_minimal() +
-  ylim(0, 50) +
+  theme(
+    legend.position = "none", 
+    axis.title.y = element_text(margin = margin(t = 0, r = 30, b = 0, l = 0)),
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    panel.background = element_rect(fill = 'white', colour = 'darkgrey'),
+    panel.grid.major = element_line(colour = 'white'),
+    text = element_text(size = 10),  # Increase overall font size
+    axis.title = element_text(size = 10),  # Axis titles
+    axis.text = element_text(size = 10))
+
+# Create grouped bar plot of number of species
+count_species_taxonomic_group2 <- ggplot(summary_data_overlap, aes(x = taxonomic_group, y = Count, fill = Category)) +
+  geom_bar(stat = "identity", position = "dodge") +
+labs(
+  x = NULL,
+  y = "Number of species",
+  fill = "Metric"
+) +
+  scale_fill_manual(values = c("orchid","purple","darkblue","dodgerblue","cyan3","cadetblue2"),
+                    labels = c("Total number of SAR","SAR overlap >0%", "SAR overlap >20%", "SAR overlap >40%","SAR overlap >60%","SAR overlap >80%")) +
+  theme_minimal() +
   theme(
     axis.title.y = element_text(margin = margin(t = 0, r = 30, b = 0, l = 0)),
     axis.text.x = element_text(angle = 45, hjust = 1),
@@ -989,147 +972,38 @@ percentage_species_taxonomic_group <- ggplot(summary_data_overlap_percent, aes(x
     panel.grid.major = element_line(colour = 'white'),
     text = element_text(size = 10),  # Increase overall font size
     axis.title = element_text(size = 10),  # Axis titles
-    axis.text = element_text(size = 10),  # Axis text
-  )
+    axis.text = element_text(size = 10))
 
-percentage_species_taxonomic_group_flipped <- ggplot(summary_data_overlap_percent, aes(x = taxonomic_group, y = Percentage, fill = Category)) +
-  geom_bar(stat = "identity", position = "dodge", width = 0.6) +
-  coord_flip() +  # Correct function to flip axes
-  labs(
-    x = "Taxonomic group",
-    y = "Percentage of species/taxonomic group",
-    fill = "Metric"
-  ) +
-  scale_fill_manual(
-    values = c("purple4", "mediumpurple1"),
-    labels = c("SAR overlapping with caribou >20%", "SAR overlapping with caribou")
-  ) +
-  theme_minimal() +
-  ylim(0, 50) +
+combined_plot <- (count_species_taxonomic_group +
+  count_species_taxonomic_group2 +
+  plot_layout(ncol = 2, guides = "collect")) +
+  plot_annotation(
+    tag_levels = list(c("a.", "b.")),
+    caption = "Taxonomic group"
+  ) &
   theme(
-    axis.title.y = element_text(margin = margin(t = 0, r = 30, b = 0, l = 0)),
-    axis.text.x = element_text(angle = 45, hjust = 1),
-    panel.background = element_rect(fill = 'white', colour = 'darkgrey'),
-    panel.grid.major = element_line(colour = 'white'),
-    text = element_text(size = 10),
-    axis.title = element_text(size = 10),
-    axis.text = element_text(size = 10)
+    legend.position = "right",
+    plot.caption = element_text(
+      size = 10,
+      hjust = 0.45,
+    )
   )
 
-# Save the plot
-ggsave(
-  filename = "./plots/percentage_species_taxonomic_group.pdf",
-  plot = percentage_species_taxonomic_group,
-  device = "pdf",   height = 10, width = 17,
-  units = "cm")
+combined_plot
 
 # Save the plot
 ggsave(
-  filename = "./plots/percentage_species_taxonomic_group_flip.jpg",
-  plot = percentage_species_taxonomic_group_flipped,
-  device = "jpg",   height = 10, width = 17,
+  filename = "./plots/count_species_taxonomic_group_combined.pdf",
+  plot = combined_plot,
+  height = 10, width = 25,
+  units = "cm")
+ggsave(
+  filename = "./plots/count_species_taxonomic_group_combined.jpg",
+  plot = combined_plot,
+  height = 10, width = 25,
   units = "cm")
 ```
 
-## Plot common threats to all SAR and SAR within caribou range
-
-```{r Threats_grouped, echo=TRUE}
-subset_data_caribou_overlap <- overlap_species_threats_no2 %>% select(16,20,25,29,34,39,43,47,54,61,65)
-subset_cat_title <- all_species_threats_no2 %>% select(16,20,25,29,34,39,43,47,54,61,65)
-
-summed_threats_caribou <- subset_data_caribou_overlap %>% 
-  summarise(across(everything(), sum)) %>%
-  pivot_longer(everything(), names_to = "Threat", values_to = "Summed_Species_cara") 
-
-summed_threats_over <- subset_cat_title %>% 
-  summarise(across(everything(), sum)) %>%
-  pivot_longer(everything(), names_to = "Threat", values_to = "Summed_species_all")
-
-Threats_both <- summed_threats_over %>%
-  mutate(Summed_species_cara = summed_threats_caribou$Summed_Species_cara)
-
-## Calculate proportions of all species
-Threats_both <- Threats_both %>%
-  mutate(Proportion_all = (Summed_species_all/618)*100)
-
-## Calculate proportions of caribou overlapping species
-Threats_both <- Threats_both %>%
-  mutate(Proportion_cara = (Summed_species_cara/109)*100)
-
-Threats_both2 <- Threats_both %>% 
-  pivot_longer(cols = starts_with("Proportion"), names_to = "type", values_to = "Proportion")
-
-# Rename categories
-Threats_both2 <- Threats_both2 %>%
-  mutate(Threat = dplyr::recode(Threat, 
-                        "X2_agri_aqua" = "Agriculture and aquaculture",
-                        "X5_bio_resource_use" = "Biological resource use",
-                        "X11_climate_change" = "Climate change",
-                         "X3_energy" = "Energy production and mining",
-                         "X10_geological_event" = "Geological events",
-                         "X6_human_disturbance" = "Human disturbance",
-                         "X8_invasive_species" = "Invasive and problematic species",
-                         "X7_natural_sys_change" = "Natural system modifications",
-                         "X9_pollution" = "Pollution",
-                         "X1_res_comm_development" = "Residential and commercial development",
-                         "X4_transport_service" = "Transport and service corridors"))
-
-# Specify the desired order of categories
-desired_order3 <- c(
-  "Invasive and problematic species",
-  "Natural system modifications",
-  "Pollution",
-  "Climate change",
-  "Human disturbance",
-  "Residential and commercial development",
-  "Biological resource use",
-  "Transport and service corridors",
-  "Agriculture and aquaculture",
-  "Energy production and mining",
-  "Geological events"
-)
-
-# Reorder the factor levels in the data frame
-Threats_both2$Threat <- factor(Threats_both2$Threat, levels = desired_order3)
-
-# Define custom colors
-custom_colors <- c(
-  'Proportion_all' = 'dodgerblue',  # Dark teal color for 'wolverine'
-  'Proportion_cara' = 'cadetblue2'  # Light blue color for 'woodland caribou'
-)
-
-threats_summary <- ggplot(Threats_both2, aes(x = Threat, y = Proportion, fill=type, width=0.45)) +
-  geom_bar(stat = "identity", position='dodge') +
-  labs(x = "Threat",
-       y = "Proportion of species") +
-  theme_minimal() +
-  scale_fill_manual(values = custom_colors) +
-  ylim(0, 100) +
-  theme(
-    axis.title.y = element_text(margin = margin(t = 0, r = 50, b = 0, l = 0)),
-    axis.text.x = element_text(angle = 65, hjust = 1, margin = margin(t = 0, r = 0, b = 20, l = 0)),
-    panel.background = element_rect(fill = 'white', colour = 'darkgrey'),
-    panel.grid.major = element_line(colour = 'white'),
-    text = element_text(size = 10),  # Increase overall font size
-    axis.title = element_text(size = 10),  # Axis titles
-    axis.text = element_text(size = 10),  # Axis text
-    legend.position = "none"
-  )
-
-# Save the plot
-ggsave(
-  filename = "./plots/threats_summary.pdf",
-  plot = threats_summary,
-  device = "pdf",   height = 14, width = 17,
-  units = "cm")
-
-ggsave(
-  filename = "./plots/threats_summary.jpg",
-  plot = threats_summary,
-  device = "jpg",   height = 14, width = 17,
-  units = "cm")
-
-```
 
 ## Graph the number of species with values of the jaccard index
 
@@ -1554,3 +1428,117 @@ labels(dendrogram_colored) <- subset_data_clust$common_name
 # Step 8: Adjusting the X-axis labels
 # Move X-axis label lower using mtext()
 mtext("Species", side = 1, line = 30, cex = 1.5)  # side = 1 is for X-axis
+```
+
+
+```{r Raster_map, echo=TRUE}
+library(tidyverse)
+library(sf)
+library(terra)
+library(tidyterra)
+### patchwork allows you to arrange plots in a grid
+library(patchwork)
+library(ggpattern)
+
+sar_canada <- read_sf("Spatial_values/SpeciesAtRiskRangeMapEx_Clip_Canada.shp") %>%
+  st_transform(st_crs(3978))
+sar_other <- read_sf("Spatial_values/Sar_ebar_merge_dissolve_Clip.shp") %>%
+  rename(COM_NAME_E = global_com) %>%
+  mutate(TAXON_E = c("Lichens", "Vascular Plants", "Arthropods", "Reptiles",
+                     "Birds", "Reptiles", "Molluscs", "Molluscs", "Vascular Plants",
+                     "Molluscs", "Molluscs", "Amphibians", "Lichens", "Arthropods")) %>%
+  st_transform(st_crs(3978))
+sar_combine <- sar_canada %>%
+  bind_rows(sar_other) %>%
+  select(COM_NAME_E, TAXON_E) %>%
+  st_simplify(dTolerance = 10000)
+plot(sar_combine)
+
+caribou_range <- read_sf("Spatial_values/Woodland_caribou_dissol_Clip.shp") %>%
+  st_transform(st_crs(3978)) %>%
+  st_simplify(dTolerance = 10000) 
+plot(caribou_range)
+  
+canada_bound <- read_sf("Spatial_values/Caanada_w_provinces_Dissolve.shp") %>%
+  st_simplify(dTolerance = 10000) %>%
+  st_transform(st_crs(3978)) 
+plot(canada_bound)
+
+taxon_counts <- summary(factor(sar_combine$TAXON_E))
+
+sar_boundary <- st_bbox(sar_combine) %>%
+  st_as_sfc() 
+
+sar_boundary_vect <- sar_boundary %>%
+  vect()
+
+### Invert canada map to mask the rasters
+inv_canada <- st_difference(sar_boundary, st_union(canada_bound))
+
+temp_rast <- rast(sar_boundary_vect, res = 100000)
+
+
+### create rasters for each taxon
+
+make_sar_raster <- function(range_polys, taxon, raster_template){
+  raster <- range_polys %>%
+    filter(TAXON_E == taxon) %>%
+    vect() %>%
+    rasterize(raster_template, fun = "count") %>%
+    mask(canada_bound)
+}
+
+amphibs <- make_sar_raster(sar_combine, "Amphibians", temp_rast)
+arthro <- make_sar_raster(sar_combine, "Arthropods", temp_rast)
+birds <- make_sar_raster(sar_combine, "Birds", temp_rast)
+lichens <- make_sar_raster(sar_combine, "Lichens", temp_rast)
+mammals <- make_sar_raster(sar_combine, "Mammals", temp_rast)
+mollus <- make_sar_raster(sar_combine, "Molluscs", temp_rast)
+moss <- make_sar_raster(sar_combine, "Mosses", temp_rast)
+repts <- make_sar_raster(sar_combine, "Reptiles", temp_rast)
+plants <- make_sar_raster(sar_combine, "Vascular Plants", temp_rast)
+
+create_raster_plot <- function(raster, taxon){
+  plot <- ggplot(data = canada_bound) +
+    geom_spatraster(data = raster) +
+    geom_sf(data = inv_canada, fill = "white", colour = NA) +
+    geom_sf(fill = NA) +
+    geom_sf_pattern(data = caribou_range, aes(colour = "Woodland caribou range"),
+            fill = NA, linewidth = 0.5, 
+            pattern = "stripe", pattern_fill = "lightblue4",
+            pattern_spacing = 0.03) +
+    scale_colour_manual(values = "lightblue4") +
+    labs(colour = "") +
+    scale_fill_viridis_c(na.value = "transparent",
+                        limits = c(1,25), 
+                        direction = -1,
+                        begin = 0.2) + 
+    labs(fill = "Number of species", title = taxon) +
+    theme_bw() + 
+    theme(panel.background = element_rect(fill = "white"),
+          axis.ticks = element_blank(),
+          axis.text = element_blank(),
+          panel.grid = element_blank(),
+          legend.text = element_text(size = 12),
+          legend.title = element_text(size = 12),
+          plot.title = element_text(size = 12, hjust = 0.5))
+}
+
+amphibs_plot <- create_raster_plot(amphibs, "Amphibians")
+arthro_plot <- create_raster_plot(arthro, "Arthropods")
+birds_plot <- create_raster_plot(birds, "Birds")
+lichens_plot <- create_raster_plot(lichens, "Lichens")
+mammals_plot <- create_raster_plot(mammals, "Mammals")
+mollus_plot <- create_raster_plot(mollus, "Molluscs")
+moss_plot <- create_raster_plot(moss, "Mosses")
+repts_plot <- create_raster_plot(repts, "Reptiles")
+plants_plot <- create_raster_plot(plants, "Vascular Plants")
+
+amphibs_plot + arthro_plot + birds_plot + lichens_plot + mammals_plot +
+  mollus_plot + moss_plot + repts_plot + plants_plot +
+  plot_layout(ncol = 3, 
+              nrow = 3, 
+              guides = "collect"
+              )
+ggsave("taxon_distribution_map.pdf", width = 10, height = 9)
+```
